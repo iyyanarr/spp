@@ -78,6 +78,16 @@ const UpdateBOM: React.FC = () => {
   const [selectedFinalBatchBOM, setSelectedFinalBatchBOM] = useState<string>("");
   const [selectedMasterBatchBOM, setSelectedMasterBatchBOM] = useState<string>("");
 
+  // Add these new state variables at the top with other state declarations
+  const [selectedBatch, setSelectedBatch] = useState<string>("");
+  const [batchItems, setBatchItems] = useState<Array<{item_code: string, item_name: string}>>([]);
+  const [batchBOMs, setBatchBOMs] = useState<BOM[]>([]);
+  const [isBatchItemsLoading, setIsBatchItemsLoading] = useState(false);
+  const [isBatchBOMsLoading, setIsBatchBOMsLoading] = useState(false);
+  const [batchItemsError, setBatchItemsError] = useState<string | null>(null);
+  const [batchBOMsError, setBatchBOMsError] = useState<string | null>(null);
+  const [selectedBatchBOM, setSelectedBatchBOM] = useState<string>("");
+
   // Fetch item list
   const { data, isLoading, error } = useFrappeGetDocList<Item>("Item", {
     fields: ["name", "item_name", "item_group"],
@@ -220,6 +230,119 @@ const UpdateBOM: React.FC = () => {
       setMasterBatchBOMError("Failed to fetch BOMs for this Master Batch");
     } finally {
       setIsMasterBatchBOMsLoading(false);
+    }
+  }, []);
+
+  // Add this hook to fetch Master Batch BOM details
+  const {
+    data: masterBatchBOMDetails,
+    isLoading: isMasterBatchBOMDetailsLoading,
+    error: masterBatchBOMDetailsError,
+  } = useFrappeGetDoc<BOMDetails>(
+    "BOM", 
+    selectedMasterBatchBOM || "", 
+    {
+      fields: ["name", "company", "item", "item_name", "quantity", "uom", "items"],
+      enabled: !!selectedMasterBatchBOM, // Only fetch when a Master Batch BOM is selected
+    }
+  );
+
+  // Add an effect to handle the Master Batch BOM details data
+  useEffect(() => {
+    // Reset loading state when the selection changes
+    if (!selectedMasterBatchBOM) {
+      setBatchItems([]);
+      setIsBatchItemsLoading(false);
+      setBatchItemsError(null);
+      return;
+    }
+    
+    if (masterBatchBOMDetails && masterBatchBOMDetails.items && Array.isArray(masterBatchBOMDetails.items)) {
+      // Convert the items from the BOM details to the format needed for batch items
+      const items = masterBatchBOMDetails.items.map(item => ({
+        item_code: item.item_code || "",
+        item_name: item.item_name || ""
+      }));
+      
+      setBatchItems(items);
+      setBatchItemsError(null);
+    } else if (masterBatchBOMDetails) {
+      // We have the BOM details but no valid items
+      setBatchItems([]);
+      setBatchItemsError("No valid items found in this BOM");
+    }
+    
+    // Always reset loading state when we have a response
+    if (masterBatchBOMDetails || masterBatchBOMDetailsError) {
+      setIsBatchItemsLoading(false);
+    }
+  }, [selectedMasterBatchBOM, masterBatchBOMDetails, masterBatchBOMDetailsError]);
+
+  // Add an effect to handle errors from the hook
+  useEffect(() => {
+    if (masterBatchBOMDetailsError) {
+      console.error("Error fetching Master Batch BOM details:", masterBatchBOMDetailsError);
+      setBatchItemsError("Failed to fetch items for this Master Batch BOM");
+      setBatchItems([]);
+      setIsBatchItemsLoading(false);
+    }
+  }, [masterBatchBOMDetailsError]);
+
+  // Update the Master Batch BOM selection handler
+  const handleMasterBatchBOMChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const bomName = e.target.value;
+    
+    // Reset dependent selections and their BOMs
+    setSelectedBatch("");
+    setSelectedBatchBOM("");
+    setBatchItems([]);
+    setBatchBOMs([]);
+    
+    // Set the selected Master Batch BOM
+    setSelectedMasterBatchBOM(bomName);
+    
+    // Set loading state for batch items - will be reset in the useEffect when data is loaded
+    if (bomName) {
+      setIsBatchItemsLoading(true);
+      setBatchItemsError(null);
+    }
+  }, []);
+
+  // Add handler for Batch selection
+  const handleBatchChange = useCallback(async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedValue = e.target.value;
+    
+    // Reset dependent selections
+    setSelectedBatchBOM("");
+    setBatchBOMs([]);
+    
+    // Set new selection
+    setSelectedBatch(selectedValue);
+    
+    if (!selectedValue) {
+      setBatchBOMsLoading(false);
+      setBatchBOMsError(null);
+      return;
+    }
+    
+    setIsBatchBOMsLoading(true);
+    setBatchBOMsError(null);
+    
+    try {
+      // Use the Frappe API to fetch BOMs associated with this item
+      const response = await fetch(`/api/method/frappe.client.get_list?doctype=BOM&fields=["name","item","item_name","is_active","is_default"]&filters=[["item","=","${selectedValue}"]]`);
+      const data = await response.json();
+      
+      if (data.message && Array.isArray(data.message)) {
+        setBatchBOMs(data.message);
+      } else {
+        setBatchBOMs([]);
+      }
+    } catch (error) {
+      console.error("Error fetching Batch BOMs:", error);
+      setBatchBOMsError("Failed to fetch BOMs for this Batch");
+    } finally {
+      setIsBatchBOMsLoading(false);
     }
   }, []);
 
@@ -529,7 +652,7 @@ const UpdateBOM: React.FC = () => {
               <select
                 id="master-bom-ref"
                 value={selectedMasterBatchBOM}
-                onChange={(e) => setSelectedMasterBatchBOM(e.target.value)}
+                onChange={handleMasterBatchBOMChange}
                 className="col-span-3 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
                 disabled={isMasterBatchBOMsLoading || !selectedMasterBatch}
               >
@@ -569,9 +692,9 @@ const UpdateBOM: React.FC = () => {
             
             {/* Master Batch BOM Info */}
             {selectedMasterBatchBOM && masterBatchBOMs.length > 0 && (
-              <div className="mt-2 ml-[calc(16.67%+1rem)] col-span-10 bg-teal-50 border border-teal-200 rounded-md p-2 text-xs">
+              <div className="mt-2 ml-[calc(16.67%+1rem)] col-span-10 bg-indigo-50 border border-indigo-200 rounded-md p-2 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="font-medium text-teal-800">
+                  <span className="font-medium text-indigo-800">
                     {selectedMasterBatchBOM}
                   </span>
                   <div className="flex gap-1">
@@ -601,57 +724,95 @@ const UpdateBOM: React.FC = () => {
               <label className="col-span-2 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="batch">
                 Batch:
               </label>
-              <input
+              <select
                 id="batch"
-                type="text"
+                value={selectedBatch}
+                onChange={handleBatchChange}
                 className="col-span-4 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="Enter Batch"
-              />
+                disabled={!selectedMasterBatchBOM || isMasterBatchBOMDetailsLoading || isBatchItemsLoading}
+              >
+                <option value="">Select Batch</option>
+                {isMasterBatchBOMDetailsLoading || isBatchItemsLoading ? (
+                  <option value="" disabled>Loading batches...</option>
+                ) : batchItemsError ? (
+                  <option value="" disabled>{batchItemsError}</option>
+                ) : batchItems.length === 0 && selectedMasterBatchBOM ? (
+                  <option value="" disabled>No batches available</option>
+                ) : (
+                  batchItems.map((item, idx) => (
+                    <option key={`batch-${idx}`} value={item.item_code}>
+                      {item.item_name} ({item.item_code})
+                    </option>
+                  ))
+                )}
+              </select>
               
               <label className="col-span-1 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="batch-bom-ref">
                 BOM:
               </label>
-              <input
+              <select
                 id="batch-bom-ref"
-                type="text"
+                value={selectedBatchBOM}
+                onChange={(e) => setSelectedBatchBOM(e.target.value)}
                 className="col-span-3 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="BOM Reference"
-              />
+                disabled={isBatchBOMsLoading || !selectedBatch}
+              >
+                <option value="">Select BOM</option>
+                {isBatchBOMsLoading ? (
+                  <option value="" disabled>Loading BOMs...</option>
+                ) : batchBOMsError ? (
+                  <option value="" disabled>Error loading BOMs</option>
+                ) : batchBOMs.length === 0 && selectedBatch ? (
+                  <option value="" disabled>No BOMs found</option>
+                ) : (
+                  batchBOMs.map(bom => (
+                    <option key={bom.name} value={bom.name}>
+                      {bom.name} {bom.is_default ? "(Default)" : ""} {bom.is_active ? "(Active)" : "(Inactive)"}
+                    </option>
+                  ))
+                )}
+              </select>
               
               <div className="col-span-2 flex gap-1">
                 <Button 
                   variant="outline" 
                   className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50 text-xs px-2"
+                  disabled={!selectedBatchBOM}
                 >
                   Update
                 </Button>
                 <Button 
                   variant="outline" 
                   className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 text-xs px-2"
+                  disabled={!selectedBatchBOM}
                 >
                   View
                 </Button>
               </div>
             </div>
             
-            {/* This would be populated dynamically with actual data when available */}
-            {false && (
-              <div className="mt-2 ml-[calc(16.67%+1rem)] col-span-10 bg-teal-50 border border-teal-200 rounded-md p-2 text-xs">
+            {/* Batch BOM Info - with different color scheme */}
+            {selectedBatchBOM && batchBOMs.length > 0 && (
+              <div className="mt-2 ml-[calc(16.67%+1rem)] col-span-10 bg-amber-50 border border-amber-200 rounded-md p-2 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="font-medium text-teal-800">
-                    BOM-0000123
+                  <span className="font-medium text-amber-800">
+                    {selectedBatchBOM}
                   </span>
                   <div className="flex gap-1">
-                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">Default</span>
-                    <span className="px-1.5 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
+                    {batchBOMs.find(b => b.name === selectedBatchBOM)?.is_default && (
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">Default</span>
+                    )}
+                    {batchBOMs.find(b => b.name === selectedBatchBOM)?.is_active && (
+                      <span className="px-1.5 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-1 text-gray-700">
                   <div>
-                    <span className="text-gray-500">Item:</span> Sample Batch
+                    <span className="text-gray-500">Item:</span> {batchBOMs.find(b => b.name === selectedBatchBOM)?.item_name}
                   </div>
                   <div>
-                    <span className="text-gray-500">Code:</span> BATCH-001
+                    <span className="text-gray-500">Code:</span> {batchBOMs.find(b => b.name === selectedBatchBOM)?.item}
                   </div>
                 </div>
               </div>
