@@ -23,6 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { 
+  FinalBatchBOMDetailsView, 
+  MasterBatchBOMDetailsView, 
+  BatchBOMDetailsView 
+} from "@/components/BOMDetailsViews";
 
 interface Item {
   name: string;
@@ -88,6 +93,11 @@ const UpdateBOM: React.FC = () => {
   const [batchBOMsError, setBatchBOMsError] = useState<string | null>(null);
   const [selectedBatchBOM, setSelectedBatchBOM] = useState<string>("");
 
+  // Add state variables to track which BOM views are visible
+  const [showFinalBatchBOMDetails, setShowFinalBatchBOMDetails] = useState(false);
+  const [showMasterBatchBOMDetails, setShowMasterBatchBOMDetails] = useState(false);
+  const [showBatchBOMDetails, setShowBatchBOMDetails] = useState(false);
+
   // Fetch item list
   const { data, isLoading, error } = useFrappeGetDocList<Item>("Item", {
     fields: ["name", "item_name", "item_group"],
@@ -117,8 +127,8 @@ const UpdateBOM: React.FC = () => {
     mutate: refetchBomList,
   } = useFrappeGetDocList<BOM>("BOM", {
     fields: ["name", "item", "item_name", "is_active", "is_default"],
-    filters: selectedItem ? [["item", "=", selectedItem]] : [],
-    enabled: false, // Fetch only when triggered
+    filters: selectedItem ? [["item", "=", selectedItem]] : []
+    // enabled: false, // Fetch only when triggered
   });
 
   const handleFetch = useCallback(() => {
@@ -320,7 +330,7 @@ const UpdateBOM: React.FC = () => {
     setSelectedBatch(selectedValue);
     
     if (!selectedValue) {
-      setBatchBOMsLoading(false);
+      setIsBatchBOMsLoading(false);
       setBatchBOMsError(null);
       return;
     }
@@ -345,6 +355,42 @@ const UpdateBOM: React.FC = () => {
       setIsBatchBOMsLoading(false);
     }
   }, []);
+
+  // 1. First, add this hook to fetch the selected item's details
+  const {
+    data: itemDetails,
+    isLoading: isItemDetailsLoading,
+    error: itemDetailsError,
+  } = useFrappeGetDoc<{
+    name: string;
+    item_name: string;
+    item_group: string;
+    description: string;
+    stock_uom: string;
+    valuation_rate: number;
+    standard_rate: number;
+    is_stock_item: boolean;
+    has_batch_no: boolean;
+    has_serial_no: boolean;
+  }>(
+    "Item", 
+    selectedItem || "", 
+    {
+      fields: [
+        "name", 
+        "item_name", 
+        "item_group", 
+        "description", 
+        "stock_uom", 
+        "valuation_rate", 
+        "standard_rate", 
+        "is_stock_item", 
+        "has_batch_no", 
+        "has_serial_no"
+      ],
+      enabled: !!selectedItem, // Only fetch when an item is selected
+    }
+  );
 
   return (
     <div className="w-full h-full p-4 bg-gray-50">
@@ -422,6 +468,71 @@ const UpdateBOM: React.FC = () => {
               </Button>
             </div>
           </div>
+          {/* 2. Then, add this JSX after the Button div in the Item Selection section: */}
+          {/* New Item Info Card */}
+          {selectedItem && itemDetails && !isItemDetailsLoading && (
+            <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-md text-sm">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-medium text-indigo-800">
+                  {itemDetails.item_name}
+                </span>
+                <div className="flex gap-1">
+                  {itemDetails.is_stock_item && (
+                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">Stock Item</span>
+                  )}
+                  {itemDetails.has_batch_no && (
+                    <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">Batch</span>
+                  )}
+                  {itemDetails.has_serial_no && (
+                    <span className="px-1.5 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Serial</span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="text-gray-700">
+                <div className="flex justify-between">
+                  <span>Code:</span>
+                  <span className="font-medium">{itemDetails.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Group:</span>
+                  <span>{itemDetails.item_group}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>UOM:</span>
+                  <span>{itemDetails.stock_uom}</span>
+                </div>
+                {itemDetails.valuation_rate > 0 && (
+                  <div className="flex justify-between">
+                    <span>Value:</span>
+                    <span>₹{itemDetails.valuation_rate.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+              
+              {itemDetails.description && (
+                <div className="mt-2 pt-2 border-t border-indigo-200">
+                  <p className="text-xs text-gray-600 line-clamp-2" title={itemDetails.description}>
+                    {itemDetails.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Item Loading State */}
+          {selectedItem && isItemDetailsLoading && (
+            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-500">
+              Loading item details...
+            </div>
+          )}
+
+          {/* Item Error State */}
+          {selectedItem && itemDetailsError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+              Error loading item details
+            </div>
+          )}
         </div>
 
         {/* Middle Section - BOM Selection */}
@@ -586,6 +697,7 @@ const UpdateBOM: React.FC = () => {
                   variant="outline" 
                   className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 text-xs px-2"
                   disabled={!selectedFinalBatchBOM}
+                  onClick={() => setShowFinalBatchBOMDetails(true)}
                 >
                   View
                 </Button>
@@ -684,6 +796,7 @@ const UpdateBOM: React.FC = () => {
                   variant="outline" 
                   className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 text-xs px-2"
                   disabled={!selectedMasterBatchBOM}
+                  onClick={() => setShowMasterBatchBOMDetails(true)}
                 >
                   View
                 </Button>
@@ -785,6 +898,7 @@ const UpdateBOM: React.FC = () => {
                   variant="outline" 
                   className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 text-xs px-2"
                   disabled={!selectedBatchBOM}
+                  onClick={() => setShowBatchBOMDetails(true)}
                 >
                   View
                 </Button>
@@ -827,8 +941,65 @@ const UpdateBOM: React.FC = () => {
           )}
         </div>
       </div>
-      <div className="flex flex-row gap-4 mb-6 w-full p-4 bg-white rounded-lg shadow-md border-l-4 border-gray-400">
-        <span className="text-gray-600">Status information and additional details can go here</span>
+  
+      {/* Bottom Section - Additional BOM Views */}
+      <div className="flex flex-col gap-4 mb-6 w-full">
+        {/* Final Batch BOM View */}
+        <div className="p-4 bg-white rounded-lg shadow-md border-t-4 border-teal-500">
+          <h3 className="text-lg font-semibold text-teal-700 mb-2">Final Batch BOM View</h3>
+          {showFinalBatchBOMDetails && selectedFinalBatchBOM ? (
+            <FinalBatchBOMDetailsView 
+              bomId={selectedFinalBatchBOM} 
+              onClose={() => setShowFinalBatchBOMDetails(false)}
+              key={`final-view-${selectedFinalBatchBOM}`} // Add this key
+            />
+          ) : (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded text-gray-500 text-sm h-48 flex items-center justify-center">
+              {selectedFinalBatchBOM ? 
+                "Click the View button to display BOM details" : 
+                "Select a Final Batch BOM to view its details"
+              }
+            </div>
+          )}
+        </div>
+        
+        {/* Master Batch BOM View */}
+        <div className="p-4 bg-white rounded-lg shadow-md border-t-4 border-indigo-500">
+          <h3 className="text-lg font-semibold text-indigo-700 mb-2">Master Batch BOM View</h3>
+          {showMasterBatchBOMDetails && selectedMasterBatchBOM ? (
+            <MasterBatchBOMDetailsView 
+              bomId={selectedMasterBatchBOM} 
+              onClose={() => setShowMasterBatchBOMDetails(false)}
+              key={`master-view-${selectedMasterBatchBOM}`} // Add this key
+            />
+          ) : (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded text-gray-500 text-sm h-48 flex items-center justify-center">
+              {selectedMasterBatchBOM ? 
+                "Click the View button to display BOM details" : 
+                "Select a Master Batch BOM to view its details"
+              }
+            </div>
+          )}
+        </div>
+        
+        {/* Batch BOM View */}
+        <div className="p-4 bg-white rounded-lg shadow-md border-t-4 border-amber-500">
+          <h3 className="text-lg font-semibold text-amber-700 mb-2">Batch BOM View</h3>
+          {showBatchBOMDetails && selectedBatchBOM ? (
+            <BatchBOMDetailsView 
+              bomId={selectedBatchBOM} 
+              onClose={() => setShowBatchBOMDetails(false)}
+              key={`batch-view-${selectedBatchBOM}`} // Add this key
+            />
+          ) : (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded text-gray-500 text-sm h-48 flex items-center justify-center">
+              {selectedBatchBOM ? 
+                "Click the View button to display BOM details" : 
+                "Select a Batch BOM to view its details"
+              }
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
