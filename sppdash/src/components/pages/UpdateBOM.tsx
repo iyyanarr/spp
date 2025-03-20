@@ -148,12 +148,12 @@ const UpdateBOM: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full h-full p-4">
-      <h1 className="text-2xl font-bold mb-6">Update BOM</h1>
+    <div className="w-full h-full p-4 bg-gray-50">
+      <h1 className="text-2xl font-bold mb-6 text-indigo-700">Update BOM</h1>
       <div className="flex flex-row gap-4 mb-6 w-full">
         {/* Left Section - Item Selection */}
-        <div className="flex-1 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Select Item</h2>
+        <div className="w-1/4 bg-white rounded-lg shadow-md p-6 border-t-4 border-indigo-500">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">Select Item</h2>
           <div className="relative flex items-center w-full space-x-2">
             <div className="w-[calc(100%-100px)]">
               <Popover open={open} onOpenChange={setOpen}>
@@ -162,7 +162,7 @@ const UpdateBOM: React.FC = () => {
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="w-full justify-between"
+                    className="w-full justify-between border-gray-300 hover:bg-gray-50 hover:border-indigo-300"
                   >
                     {selectedItem && data
                       ? data.find((item) => item.name === selectedItem)?.item_name || 
@@ -177,14 +177,15 @@ const UpdateBOM: React.FC = () => {
                       placeholder="Search for an item..."
                       value={searchQuery}
                       onValueChange={setSearchQuery}
+                      className="border-b border-gray-200"
                     />
                     <CommandList>
                       {isLoading ? (
                         <CommandItem disabled>Loading...</CommandItem>
                       ) : error ? (
-                        <CommandItem disabled>Error loading items</CommandItem>
+                        <CommandItem disabled className="text-red-500">Error loading items</CommandItem>
                       ) : filteredItems.length === 0 ? (
-                        <CommandEmpty>No item found.</CommandEmpty>
+                        <CommandEmpty className="text-gray-500">No item found.</CommandEmpty>
                       ) : (
                         <CommandGroup>
                           {filteredItems.map((item) => (
@@ -192,12 +193,13 @@ const UpdateBOM: React.FC = () => {
                               key={item.name}
                               value={item.name}
                               onSelect={handleItemSelect}
+                              className="hover:bg-indigo-50"
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
                                   selectedItem === item.name
-                                    ? "opacity-100"
+                                    ? "text-indigo-600 opacity-100"
                                     : "opacity-0"
                                 )}
                               />
@@ -215,7 +217,7 @@ const UpdateBOM: React.FC = () => {
               <Button
                 onClick={handleFetch}
                 disabled={!selectedItem}
-                className="w-full"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 Fetch
               </Button>
@@ -224,21 +226,21 @@ const UpdateBOM: React.FC = () => {
         </div>
 
         {/* Middle Section - BOM Selection */}
-        <div className="flex-1 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Select BOM</h2>
+        <div className="w-1/4 bg-white rounded-lg shadow-md p-6 border-t-4 border-purple-500">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">Select BOM</h2>
           <div className="space-y-4">
             {/* Use a direct approach rather than the Select component */}
             {isBomLoading ? (
-              <div className="p-2 border rounded">Loading...</div>
+              <div className="p-2 border rounded text-gray-500 bg-gray-50">Loading...</div>
             ) : bomError || fetchError ? (
-              <div className="p-2 border rounded text-red-500">Error loading BOMs</div>
+              <div className="p-2 border rounded text-red-500 bg-red-50 border-red-200">Error loading BOMs</div>
             ) : !bomList || bomList.length === 0 ? (
-              <div className="p-2 border rounded">No BOMs found</div>
+              <div className="p-2 border rounded text-amber-700 bg-amber-50 border-amber-200">No BOMs found</div>
             ) : (
               <select 
                 value={selectedBOM} 
                 onChange={(e) => setSelectedBOM(e.target.value)}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-purple-300 focus:border-purple-300"
               >
                 <option value="">Select BOM</option>
                 {bomList.map((bom) => (
@@ -253,32 +255,114 @@ const UpdateBOM: React.FC = () => {
         </div>
 
         {/* Right Section - BOM Details */}
-        <div className="flex-1 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">BOM Details</h2>
-          <div className="space-y-4">
-            {isBomDetailsLoading ? (
-              <div className="text-gray-500">Loading BOM details...</div>
-            ) : bomDetailsError ? (
-              <div className="p-4 bg-red-50 text-red-600 rounded-md">
-                {bomDetailsError}
-              </div>
-            ) : bomDetails ? (
-              <div>
-                <p>
-                  <strong>Item:</strong> {bomDetails.item_name} ({bomDetails.item})
-                </p>
-                <p>
-                  <strong>Quantity:</strong> {bomDetails.quantity} {bomDetails.uom}
-                </p>
-                <p>
-                  <strong>Company:</strong> {bomDetails.company}
-                </p>
-              </div>
-            ) : (
-              <div className="text-gray-500">Select a BOM to view details</div>
-            )}
+        <div className="w-1/2 bg-white rounded-lg shadow-md p-6 border-t-4 border-teal-500">
+          <h2 className="text-xl font-semibold mb-6 text-gray-800">BOM Details</h2>
+          
+          {/* Final Batch Row */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center w-2/3 gap-2">
+              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="final-batch">
+                Final Batch:
+              </label>
+              <input
+                id="final-batch"
+                type="text"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+                placeholder="Enter Final Batch"
+              />
+            </div>
+            <div className="flex items-center w-1/3 gap-2">
+              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="final-bom-ref">
+                BOM Ref:
+              </label>
+              <input
+                id="final-bom-ref"
+                type="text"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+                placeholder="BOM Reference"
+              />
+            </div>
+            <div className="flex gap-2 w-1/4">
+              <Button variant="outline" className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50">
+                Update
+              </Button>
+              <Button variant="outline" className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50">
+                View
+              </Button>
+            </div>
+          </div>
+          
+          {/* Master Batch Row */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center w-2/3 gap-2">
+              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="master-batch">
+                Master Batch:
+              </label>
+              <input
+                id="master-batch"
+                type="text"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+                placeholder="Enter Master Batch"
+              />
+            </div>
+            <div className="flex items-center w-1/3 gap-2">
+              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="master-bom-ref">
+                BOM Ref:
+              </label>
+              <input
+                id="master-bom-ref"
+                type="text"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+                placeholder="BOM Reference"
+              />
+            </div>
+            <div className="flex gap-2 w-1/4">
+              <Button variant="outline" className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50">
+                Update
+              </Button>
+              <Button variant="outline" className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50">
+                View
+              </Button>
+            </div>
+          </div>
+          
+          {/* Batch Row */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center w-2/3 gap-2">
+              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="batch">
+                Batch:
+              </label>
+              <input
+                id="batch"
+                type="text"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+                placeholder="Enter Batch"
+              />
+            </div>
+            <div className="flex items-center w-1/3 gap-2">
+              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="batch-bom-ref">
+                BOM Ref:
+              </label>
+              <input
+                id="batch-bom-ref"
+                type="text"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+                placeholder="BOM Reference"
+              />
+            </div>
+            <div className="flex gap-2 w-1/4">
+              <Button variant="outline" className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50">
+                Update
+              </Button>
+              <Button variant="outline" className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50">
+                View
+              </Button>
+            </div>
           </div>
         </div>
+      </div>
+      <div className="flex flex-row gap-4 mb-6 w-full p-4 bg-white rounded-lg shadow-md border-l-4 border-gray-400">
+        <span className="text-gray-600">Status information and additional details can go here</span>
       </div>
     </div>
   );
