@@ -251,6 +251,46 @@ const UpdateBOM: React.FC = () => {
                 ))}
               </select>
             )}
+            
+            {/* BOM Info Card - Shows critical info of selected BOM */}
+            {selectedBOM && bomDetailsData && !isBomDetailsLoading && (
+              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-md text-sm">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-medium text-purple-800">
+                    {bomDetailsData.name}
+                  </span>
+                  <div className="flex gap-1">
+                    {bomList?.find(b => b.name === selectedBOM)?.is_default && (
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">Default</span>
+                    )}
+                    {bomList?.find(b => b.name === selectedBOM)?.is_active && (
+                      <span className="px-1.5 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-gray-700">
+                  <div className="flex justify-between">
+                    <span>Item:</span>
+                    <span className="font-medium">{bomDetailsData.item_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Qty:</span>
+                    <span>{bomDetailsData.quantity} {bomDetailsData.uom}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Company:</span>
+                    <span>{bomDetailsData.company}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Loading state for BOM details */}
+            {selectedBOM && isBomDetailsLoading && (
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-500">
+                Loading BOM details...
+              </div>
+            )}
           </div>
         </div>
 
