@@ -321,7 +321,7 @@ const UpdateBOM: React.FC = () => {
 
         {/* Right Section - BOM Details */}
         <div className="w-1/2 bg-white rounded-lg shadow-md p-6 border-t-4 border-teal-500">
-          <h2 className="text-xl font-semibold mb-6 text-gray-800">BOM Details</h2>
+          <h2 className="text-xl font-semibold mb-6 text-gray-800">Update BOM Details</h2>
           
           {/* Final Batch Row */}
           <div className="flex items-center gap-4 mb-4">
@@ -329,12 +329,22 @@ const UpdateBOM: React.FC = () => {
               <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="final-batch">
                 Final Batch:
               </label>
-              <input
+              <select
                 id="final-batch"
-                type="text"
                 className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="Enter Final Batch"
-              />
+              >
+                <option value="">Select Final Batch</option>
+                {bomDetailsData?.items
+                  .filter(item => 
+                    item.item_code.includes("FB") || 
+                    item.item_name.toLowerCase().includes("final batch"))
+                  .map((item, idx) => (
+                    <option key={`fb-${idx}`} value={item.item_code}>
+                      {item.item_name} ({item.item_code})
+                    </option>
+                  ))
+                }
+              </select>
             </div>
             <div className="flex items-center w-1/3 gap-2">
               <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="final-bom-ref">
@@ -363,12 +373,22 @@ const UpdateBOM: React.FC = () => {
               <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="master-batch">
                 Master Batch:
               </label>
-              <input
+              <select
                 id="master-batch"
-                type="text"
                 className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="Enter Master Batch"
-              />
+              >
+                <option value="">Select Master Batch</option>
+                {bomDetailsData?.items
+                  .filter(item => 
+                    item.item_code.includes("MB") || 
+                    item.item_name.toLowerCase().includes("master batch"))
+                  .map((item, idx) => (
+                    <option key={`mb-${idx}`} value={item.item_code}>
+                      {item.item_name} ({item.item_code})
+                    </option>
+                  ))
+                }
+              </select>
             </div>
             <div className="flex items-center w-1/3 gap-2">
               <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="master-bom-ref">
@@ -424,6 +444,13 @@ const UpdateBOM: React.FC = () => {
               </Button>
             </div>
           </div>
+          
+          {/* Note about conditional options */}
+          {!bomDetailsData && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+              Select a BOM to populate the available Final Batch and Master Batch options
+            </div>
+          )}
         </div>
       </div>
       <div className="flex flex-row gap-4 mb-6 w-full p-4 bg-white rounded-lg shadow-md border-l-4 border-gray-400">
