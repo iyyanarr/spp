@@ -59,72 +59,80 @@ const UpdateBOM: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto">
+    <div className="w-full h-full p-4">
       <h1 className="text-2xl font-bold mb-6">Update BOM</h1>
-      <div className="flex flex-row gap-4 mb-6">
+      <div className="flex flex-row gap-4 mb-6 w-full">
         <div className="flex-1 bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Select Item</h2>
-          <div className="flex gap-4 items-center">
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={open}
-                  className="flex-1 justify-between"
-                >
-                  {selectedItem
-                    ? itemsData.find((item) => item.name === selectedItem)?.item_name || "Unknown item"
-                    : "Select an item..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0">
-                <Command className="rounded-lg border shadow-md">
-                  <CommandInput 
-                    placeholder="Search for an item..." 
-                    value={searchQuery}
-                    onValueChange={setSearchQuery}
-                  />
-                  <CommandList>
-                    {isLoading ? (
-                      <CommandItem disabled>Loading...</CommandItem>
-                    ) : error ? (
-                      <CommandItem disabled>Error loading items</CommandItem>
-                    ) : filteredItems.length === 0 ? (
-                      <CommandEmpty>No item found.</CommandEmpty>
-                    ) : (
-                      <CommandGroup>
-                        {filteredItems.map((item) => (
-                          <CommandItem
-                            key={item.name}
-                            value={item.name}
-                            onSelect={(value) => {
-                              setSelectedItem(value);
-                              setOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedItem === item.name ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {item.item_name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <Button 
-              onClick={handleFetch}
-              disabled={!selectedItem}
-            >
-              Fetch
-            </Button>
+          {/* Modified this div to ensure content stays inside */}
+          <div className="relative flex items-center w-full space-x-2">
+            {/* Set width to 100% minus button width */}
+            <div className="w-[calc(100%-100px)]">
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                  >
+                    {selectedItem
+                      ? itemsData.find((item) => item.name === selectedItem)?.item_name || "Unknown item"
+                      : "Select an item..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command className="rounded-lg border shadow-md">
+                    <CommandInput 
+                      placeholder="Search for an item..." 
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
+                    <CommandList>
+                      {isLoading ? (
+                        <CommandItem disabled>Loading...</CommandItem>
+                      ) : error ? (
+                        <CommandItem disabled>Error loading items</CommandItem>
+                      ) : filteredItems.length === 0 ? (
+                        <CommandEmpty>No item found.</CommandEmpty>
+                      ) : (
+                        <CommandGroup>
+                          {filteredItems.map((item) => (
+                            <CommandItem
+                              key={item.name}
+                              value={item.name}
+                              onSelect={(value) => {
+                                setSelectedItem(value);
+                                setOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedItem === item.name ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {item.item_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Fixed width for button */}
+            <div className="w-[90px]">
+              <Button 
+                onClick={handleFetch}
+                disabled={!selectedItem}
+                className="w-full"
+              >
+                Fetch
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -146,7 +154,7 @@ const UpdateBOM: React.FC = () => {
       </div>
 
       {/* Second row */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6 w-full">
         <h2 className="text-xl font-semibold mb-4">Additional Section</h2>
         <div className="space-y-4">
           <p>Additional content goes here</p>
@@ -154,7 +162,7 @@ const UpdateBOM: React.FC = () => {
       </div>
 
       {/* Third row */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6 w-full">
         <h2 className="text-xl font-semibold mb-4">Third Section</h2>
         <div className="space-y-4">
           <p>Third section content goes here</p>
@@ -162,7 +170,7 @@ const UpdateBOM: React.FC = () => {
       </div>
 
       {/* Fourth row */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-6 w-full">
         <h2 className="text-xl font-semibold mb-4">Fourth Section</h2>
         <div className="space-y-4">
           <p>Fourth section content goes here</p>
