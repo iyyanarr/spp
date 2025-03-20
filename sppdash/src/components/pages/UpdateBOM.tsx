@@ -281,6 +281,31 @@ const UpdateBOM: React.FC = () => {
                     <span>Company:</span>
                     <span>{bomDetailsData.company}</span>
                   </div>
+                  
+                  {/* Items Section */}
+                  <div className="mt-2 pt-2 border-t border-purple-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-medium">Items ({bomDetailsData.items.length})</span>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto pr-1">
+                      {bomDetailsData.items.map((item, idx) => (
+                        <div key={idx} className="py-1 border-b border-purple-100 last:border-b-0">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-medium truncate max-w-[120px]" title={item.item_name}>
+                              {item.item_name}
+                            </span>
+                            <span>{item.qty} {item.uom}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span className="truncate max-w-[120px]" title={item.item_code}>
+                              {item.item_code}
+                            </span>
+                            <span>₹{item.rate.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
