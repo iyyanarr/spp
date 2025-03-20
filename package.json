@@ -1,0 +1,21 @@
+{
+  "name": "spp",
+  "version": "1.0.0",
+  "description": "Spp",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "cd sppdash && yarn install",
+    "dev": "cd sppdash && yarn dev",
+    "build": "cd sppdash && yarn build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+
+  },
+  "dependencies": {
+  
+  }
+}
