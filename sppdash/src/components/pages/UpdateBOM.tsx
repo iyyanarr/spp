@@ -79,7 +79,7 @@ const UpdateBOM: React.FC = () => {
     data: bomList,
     isLoading: isBomLoading,
     error: bomError,
-    refetch: refetchBomList
+    mutate: refetchBomList
   } = useFrappeGetDocList<BOM>('BOM', {
     fields: ['name', 'item', 'item_name', 'is_active', 'is_default'],
     filters: selectedItem ? [['item', '=', selectedItem]] : [],
