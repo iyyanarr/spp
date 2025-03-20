@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useFrappeGetDocList } from 'frappe-react-sdk';
+import { useFrappeGetDocList, useFrappeGetDoc } from 'frappe-react-sdk';
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,24 @@ interface BOM {
   item_name: string;
   is_active: boolean;
   is_default: boolean;
+}
+
+// Add this interface for BOM details
+interface BOMDetails {
+  name: string;
+  company: string;
+  item: string;
+  item_name: string;
+  quantity: number;
+  uom: string;
+  items: Array<{
+    item_code: string;
+    item_name: string;
+    qty: number;
+    uom: string;
+    rate: number;
+    amount: number;
+  }>;
 }
 
 const UpdateBOM: React.FC = () => {
@@ -100,6 +118,42 @@ const UpdateBOM: React.FC = () => {
       });
     }
   };
+
+  // Add these state variables
+  const [bomDetails, setBomDetails] = useState<BOMDetails | null>(null);
+  const [bomDetailsError, setBomDetailsError] = useState<string | null>(null);
+
+  // Replace the manual fetch with useFrappeGetDoc
+  const { 
+    data: bomDetailsData,
+    isLoading: isBomDetailsLoading,
+    error: bomDetailsErrorFromHook
+  } = useFrappeGetDoc<BOMDetails>(
+    'BOM',
+    selectedBOM || '',  // Provide empty string as fallback
+    {
+      fields: ['name', 'company', 'item', 'item_name', 'quantity', 'uom', 'items'],
+      enabled: !!selectedBOM // Only enable if selectedBOM has a value
+    }
+  );
+
+  // Update the bomDetails state when data is received from the hook
+  useEffect(() => {
+    if (bomDetailsData) {
+      console.log("BOM Details received:", bomDetailsData);
+      setBomDetails(bomDetailsData);
+      setBomDetailsError(null);
+    }
+  }, [bomDetailsData]);
+
+  // Handle errors from the hook
+  useEffect(() => {
+    if (bomDetailsErrorFromHook) {
+      console.error("Error fetching BOM details:", bomDetailsErrorFromHook);
+      setBomDetailsError("Could not fetch BOM details");
+      setBomDetails(null);
+    }
+  }, [bomDetailsErrorFromHook]);
 
   return (
     <div className="w-full h-full p-4">
@@ -232,9 +286,69 @@ const UpdateBOM: React.FC = () => {
 
         {/* Right Section */}
         <div className="flex-1 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Section 3</h2>
+          <h2 className="text-xl font-semibold mb-4">BOM Details</h2>
           <div className="space-y-4">
-            <p>Right section content</p>
+            {isBomDetailsLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="text-gray-500">Loading BOM details...</div>
+              </div>
+            ) : bomDetailsError ? (
+              <div className="p-4 bg-red-50 text-red-600 rounded-md">
+                {bomDetailsError}
+              </div>
+            ) : !bomDetails ? (
+              <div className="text-gray-500">
+                Select a BOM to view its details
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Item</p>
+                    <p>{bomDetails.item_name} ({bomDetails.item})</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Quantity</p>
+                    <p>{bomDetails.quantity} {bomDetails.uom}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Company</p>
+                    <p>{bomDetails.company}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <h3 className="text-md font-medium mb-2">BOM Items</h3>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">UOM</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {bomDetails.items && bomDetails.items.map((item, index) => (
+                          <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                            <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
+                              {item.item_name}
+                              <div className="text-xs text-gray-500">{item.item_code}</div>
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{item.qty}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{item.uom}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{item.rate?.toFixed(2) || "N/A"}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{item.amount?.toFixed(2) || "N/A"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
