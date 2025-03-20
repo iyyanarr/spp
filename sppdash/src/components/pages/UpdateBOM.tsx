@@ -66,6 +66,18 @@ const UpdateBOM: React.FC = () => {
   const [bomDetails, setBomDetails] = useState<BOMDetails | null>(null);
   const [bomDetailsError, setBomDetailsError] = useState<string | null>(null);
 
+  // New state for selected batch items and their BOMs
+  const [selectedFinalBatch, setSelectedFinalBatch] = useState<string>("");
+  const [selectedMasterBatch, setSelectedMasterBatch] = useState<string>("");
+  const [finalBatchBOMs, setFinalBatchBOMs] = useState<BOM[]>([]);
+  const [masterBatchBOMs, setMasterBatchBOMs] = useState<BOM[]>([]);
+  const [isFinalBatchBOMsLoading, setIsFinalBatchBOMsLoading] = useState(false);
+  const [isMasterBatchBOMsLoading, setIsMasterBatchBOMsLoading] = useState(false);
+  const [finalBatchBOMError, setFinalBatchBOMError] = useState<string | null>(null);
+  const [masterBatchBOMError, setMasterBatchBOMError] = useState<string | null>(null);
+  const [selectedFinalBatchBOM, setSelectedFinalBatchBOM] = useState<string>("");
+  const [selectedMasterBatchBOM, setSelectedMasterBatchBOM] = useState<string>("");
+
   // Fetch item list
   const { data, isLoading, error } = useFrappeGetDocList<Item>("Item", {
     fields: ["name", "item_name", "item_group"],
@@ -145,6 +157,70 @@ const UpdateBOM: React.FC = () => {
   // Handle BOM selection
   const handleBOMSelect = useCallback((value: string) => {
     setSelectedBOM(value);
+  }, []);
+
+  // Handler for Final Batch selection
+  const handleFinalBatchChange = useCallback(async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedValue = e.target.value;
+    setSelectedFinalBatch(selectedValue);
+    setSelectedFinalBatchBOM("");
+    
+    if (!selectedValue) {
+      setFinalBatchBOMs([]);
+      return;
+    }
+    
+    setIsFinalBatchBOMsLoading(true);
+    setFinalBatchBOMError(null);
+    
+    try {
+      // Use the Frappe API to fetch BOMs associated with this item
+      const response = await fetch(`/api/method/frappe.client.get_list?doctype=BOM&fields=["name","item","item_name","is_active","is_default"]&filters=[["item","=","${selectedValue}"]]`);
+      const data = await response.json();
+      
+      if (data.message && Array.isArray(data.message)) {
+        setFinalBatchBOMs(data.message);
+      } else {
+        setFinalBatchBOMs([]);
+      }
+    } catch (error) {
+      console.error("Error fetching Final Batch BOMs:", error);
+      setFinalBatchBOMError("Failed to fetch BOMs for this Final Batch");
+    } finally {
+      setIsFinalBatchBOMsLoading(false);
+    }
+  }, []);
+
+  // Handler for Master Batch selection
+  const handleMasterBatchChange = useCallback(async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedValue = e.target.value;
+    setSelectedMasterBatch(selectedValue);
+    setSelectedMasterBatchBOM("");
+    
+    if (!selectedValue) {
+      setMasterBatchBOMs([]);
+      return;
+    }
+    
+    setIsMasterBatchBOMsLoading(true);
+    setMasterBatchBOMError(null);
+    
+    try {
+      // Use the Frappe API to fetch BOMs associated with this item
+      const response = await fetch(`/api/method/frappe.client.get_list?doctype=BOM&fields=["name","item","item_name","is_active","is_default"]&filters=[["item","=","${selectedValue}"]]`);
+      const data = await response.json();
+      
+      if (data.message && Array.isArray(data.message)) {
+        setMasterBatchBOMs(data.message);
+      } else {
+        setMasterBatchBOMs([]);
+      }
+    } catch (error) {
+      console.error("Error fetching Master Batch BOMs:", error);
+      setMasterBatchBOMError("Failed to fetch BOMs for this Master Batch");
+    } finally {
+      setIsMasterBatchBOMsLoading(false);
+    }
   }, []);
 
   return (
@@ -324,122 +400,176 @@ const UpdateBOM: React.FC = () => {
           <h2 className="text-xl font-semibold mb-6 text-gray-800">Update BOM Details</h2>
           
           {/* Final Batch Row */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center w-2/3 gap-2">
-              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="final-batch">
-                Final Batch:
-              </label>
-              <select
-                id="final-batch"
-                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+          <div className="grid grid-cols-12 gap-4 mb-4 items-center">
+            <label className="col-span-2 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="final-batch">
+              Final Batch:
+            </label>
+            <select
+              id="final-batch"
+              value={selectedFinalBatch}
+              onChange={handleFinalBatchChange}
+              className="col-span-4 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+              disabled={!bomDetailsData}
+            >
+              <option value="">Select Final Batch</option>
+              {bomDetailsData && bomDetailsData.items && bomDetailsData.items
+                .filter(item => 
+                  item.item_code.includes("FB") || 
+                  item.item_name.toLowerCase().includes("final batch"))
+                .map((item, idx) => (
+                  <option key={`fb-${idx}`} value={item.item_code}>
+                    {item.item_name} ({item.item_code})
+                  </option>
+                ))
+              }
+            </select>
+            
+            <label className="col-span-1 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="final-bom-ref">
+              BOM:
+            </label>
+            <select
+              id="final-bom-ref"
+              value={selectedFinalBatchBOM}
+              onChange={(e) => setSelectedFinalBatchBOM(e.target.value)}
+              className="col-span-3 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+              disabled={isFinalBatchBOMsLoading || !selectedFinalBatch}
+            >
+              <option value="">Select BOM</option>
+              {isFinalBatchBOMsLoading ? (
+                <option value="" disabled>Loading BOMs...</option>
+              ) : finalBatchBOMError ? (
+                <option value="" disabled>Error loading BOMs</option>
+              ) : finalBatchBOMs.length === 0 && selectedFinalBatch ? (
+                <option value="" disabled>No BOMs found</option>
+              ) : (
+                finalBatchBOMs.map(bom => (
+                  <option key={bom.name} value={bom.name}>
+                    {bom.name} {bom.is_default ? "(Default)" : ""} {bom.is_active ? "(Active)" : "(Inactive)"}
+                  </option>
+                ))
+              )}
+            </select>
+            
+            <div className="col-span-2 flex gap-1">
+              <Button 
+                variant="outline" 
+                className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50 text-xs px-2"
+                disabled={!selectedFinalBatchBOM}
               >
-                <option value="">Select Final Batch</option>
-                {bomDetailsData?.items
-                  .filter(item => 
-                    item.item_code.includes("FB") || 
-                    item.item_name.toLowerCase().includes("final batch"))
-                  .map((item, idx) => (
-                    <option key={`fb-${idx}`} value={item.item_code}>
-                      {item.item_name} ({item.item_code})
-                    </option>
-                  ))
-                }
-              </select>
-            </div>
-            <div className="flex items-center w-1/3 gap-2">
-              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="final-bom-ref">
-                BOM Ref:
-              </label>
-              <input
-                id="final-bom-ref"
-                type="text"
-                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="BOM Reference"
-              />
-            </div>
-            <div className="flex gap-2 w-1/4">
-              <Button variant="outline" className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50">
                 Update
               </Button>
-              <Button variant="outline" className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50">
+              <Button 
+                variant="outline" 
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 text-xs px-2"
+                disabled={!selectedFinalBatchBOM}
+              >
                 View
               </Button>
             </div>
           </div>
           
           {/* Master Batch Row */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center w-2/3 gap-2">
-              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="master-batch">
-                Master Batch:
-              </label>
-              <select
-                id="master-batch"
-                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+          <div className="grid grid-cols-12 gap-4 mb-4 items-center">
+            <label className="col-span-2 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="master-batch">
+              Master Batch:
+            </label>
+            <select
+              id="master-batch"
+              value={selectedMasterBatch}
+              onChange={handleMasterBatchChange}
+              className="col-span-4 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+              disabled={!bomDetailsData}
+            >
+              <option value="">Select Master Batch</option>
+              {bomDetailsData && bomDetailsData.items && bomDetailsData.items
+                .filter(item => 
+                  item.item_code.includes("MB") || 
+                  item.item_name.toLowerCase().includes("master batch"))
+                .map((item, idx) => (
+                  <option key={`mb-${idx}`} value={item.item_code}>
+                    {item.item_name} ({item.item_code})
+                  </option>
+                ))
+              }
+            </select>
+            
+            <label className="col-span-1 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="master-bom-ref">
+              BOM:
+            </label>
+            <select
+              id="master-bom-ref"
+              value={selectedMasterBatchBOM}
+              onChange={(e) => setSelectedMasterBatchBOM(e.target.value)}
+              className="col-span-3 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+              disabled={isMasterBatchBOMsLoading || !selectedMasterBatch}
+            >
+              <option value="">Select BOM</option>
+              {isMasterBatchBOMsLoading ? (
+                <option value="" disabled>Loading BOMs...</option>
+              ) : masterBatchBOMError ? (
+                <option value="" disabled>Error loading BOMs</option>
+              ) : masterBatchBOMs.length === 0 && selectedMasterBatch ? (
+                <option value="" disabled>No BOMs found</option>
+              ) : (
+                masterBatchBOMs.map(bom => (
+                  <option key={bom.name} value={bom.name}>
+                    {bom.name} {bom.is_default ? "(Default)" : ""} {bom.is_active ? "(Active)" : "(Inactive)"}
+                  </option>
+                ))
+              )}
+            </select>
+            
+            <div className="col-span-2 flex gap-1">
+              <Button 
+                variant="outline" 
+                className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50 text-xs px-2"
+                disabled={!selectedMasterBatchBOM}
               >
-                <option value="">Select Master Batch</option>
-                {bomDetailsData?.items
-                  .filter(item => 
-                    item.item_code.includes("MB") || 
-                    item.item_name.toLowerCase().includes("master batch"))
-                  .map((item, idx) => (
-                    <option key={`mb-${idx}`} value={item.item_code}>
-                      {item.item_name} ({item.item_code})
-                    </option>
-                  ))
-                }
-              </select>
-            </div>
-            <div className="flex items-center w-1/3 gap-2">
-              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="master-bom-ref">
-                BOM Ref:
-              </label>
-              <input
-                id="master-bom-ref"
-                type="text"
-                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="BOM Reference"
-              />
-            </div>
-            <div className="flex gap-2 w-1/4">
-              <Button variant="outline" className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50">
                 Update
               </Button>
-              <Button variant="outline" className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50">
+              <Button 
+                variant="outline" 
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 text-xs px-2"
+                disabled={!selectedMasterBatchBOM}
+              >
                 View
               </Button>
             </div>
           </div>
           
           {/* Batch Row */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center w-2/3 gap-2">
-              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="batch">
-                Batch:
-              </label>
-              <input
-                id="batch"
-                type="text"
-                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="Enter Batch"
-              />
-            </div>
-            <div className="flex items-center w-1/3 gap-2">
-              <label className="text-sm font-medium whitespace-nowrap text-gray-700 w-1/4" htmlFor="batch-bom-ref">
-                BOM Ref:
-              </label>
-              <input
-                id="batch-bom-ref"
-                type="text"
-                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                placeholder="BOM Reference"
-              />
-            </div>
-            <div className="flex gap-2 w-1/4">
-              <Button variant="outline" className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50">
+          <div className="grid grid-cols-12 gap-4 items-center">
+            <label className="col-span-2 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="batch">
+              Batch:
+            </label>
+            <input
+              id="batch"
+              type="text"
+              className="col-span-4 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+              placeholder="Enter Batch"
+            />
+            
+            <label className="col-span-1 text-sm font-medium whitespace-nowrap text-gray-700" htmlFor="batch-bom-ref">
+              BOM:
+            </label>
+            <input
+              id="batch-bom-ref"
+              type="text"
+              className="col-span-3 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+              placeholder="BOM Reference"
+            />
+            
+            <div className="col-span-2 flex gap-1">
+              <Button 
+                variant="outline" 
+                className="flex-1 border-teal-500 text-teal-700 hover:bg-teal-50 text-xs px-2"
+              >
                 Update
               </Button>
-              <Button variant="outline" className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50">
+              <Button 
+                variant="outline" 
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 text-xs px-2"
+              >
                 View
               </Button>
             </div>
