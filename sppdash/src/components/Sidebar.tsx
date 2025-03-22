@@ -18,24 +18,24 @@ const navigationRoutes: RouteItem[] = [
     icon: Home
   },
   
-  {
-    id: "bom",
-    title: "BOM",
-    path: "/bom",
-    icon: FileText 
-  },
-  {
-    id: "multi-bom",
-    title: "Multi-Level BOM",
-    path: "/mu",
-    icon: FileText
-  },
-  {
-    id: "update-bom",
-    title: "Update BOM",
-    path: "/update-bom",
-    icon: Settings
-  },
+  // {
+  //   id: "bom",
+  //   title: "BOM",
+  //   path: "/bom",
+  //   icon: FileText 
+  // },
+  // {
+  //   id: "multi-bom",
+  //   title: "Multi-Level BOM",
+  //   path: "/mu",
+  //   icon: FileText
+  // },
+  // {
+  //   id: "update-bom",
+  //   title: "Update BOM",
+  //   path: "/update-bom",
+  //   icon: Settings
+  // },
   {
     id: "sub-lot-processing",
     title: "Sub Lot Processing",

@@ -28,7 +28,7 @@ const Login: React.FC = () => {
     setError('');
     
     try {
-      await login(username, password);
+      await login({ username, password });
       // After successful login, the useEffect above will handle redirection
     } catch (err) {
       console.error('Login error:', err);
