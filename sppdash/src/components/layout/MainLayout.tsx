@@ -7,11 +7,9 @@ import PagesView from "../pages/PagesView";
 import UsersView from "../pages/UsersView";
 import SettingsView from "../pages/SettingsView";
 import HelpView from "../pages/HelpView";
-import BOMViewer from "../pages/BOMViewer";
-import BOMReferenceUI from "../pages/BOMReferenceUI";
-import BatchBOMForm from "../pages/BatchBOMForm";
-import MultiLevelBOMDetails from "../pages/MultiLevelBOMDetails";
+
 import UpdateBOM from "../pages/UpdateBOM";
+import SubLotProcessing from "../pages/SubLotProcessing";
 
 const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -43,6 +41,7 @@ const MainLayout: React.FC = () => {
             <Route path="/settings" element={<SettingsView />} />
             <Route path="/help" element={<HelpView />} />
             <Route path="/update-bom" element={<UpdateBOM />} />
+            <Route path="/sub-lot-processing" element={<SubLotProcessing />} />
           </Routes>
         </main>
       </div>

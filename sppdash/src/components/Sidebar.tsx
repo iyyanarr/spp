@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button"
-import { Menu, X, Home, FileText, Settings, Users, HelpCircle } from "lucide-react";
+import { Menu, X, Home, FileText, Settings, Users, HelpCircle, Scissors } from "lucide-react";
 import { RouteItem } from "../types";
 import UserProfile from "./UserProfile";
 
@@ -18,11 +18,12 @@ const navigationRoutes: RouteItem[] = [
     icon: Home
   },
   
-{id: "bom",
-  title: "BOM",
-  path: "/bom",
-  icon: FileText 
-},
+  {
+    id: "bom",
+    title: "BOM",
+    path: "/bom",
+    icon: FileText 
+  },
   {
     id: "multi-bom",
     title: "Multi-Level BOM",
@@ -34,6 +35,12 @@ const navigationRoutes: RouteItem[] = [
     title: "Update BOM",
     path: "/update-bom",
     icon: Settings
+  },
+  {
+    id: "sub-lot-processing",
+    title: "Sub Lot Processing",
+    path: "/sub-lot-processing",
+    icon: Scissors
   },
   {
     id: "users",

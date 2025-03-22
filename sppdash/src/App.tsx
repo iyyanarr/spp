@@ -1,8 +1,44 @@
-import { FrappeProvider } from 'frappe-react-sdk';
-import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { FrappeProvider, useFrappeAuth } from 'frappe-react-sdk';
+import React, { useEffect, useState } from "react";
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import MainLayout from "./components/layout/MainLayout";
 import Login from "./components/Login";
+
+// Protected Route component to handle authentication
+const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
+  const { currentUser, isAuthenticated, isLoading } = useFrappeAuth();
+  const location = useLocation();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // Give auth a moment to initialize
+    const timer = setTimeout(() => {
+      setChecking(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show a loading indicator while checking authentication
+  if (isLoading || checking) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-blue-600"></div>
+          <p className="text-sm text-slate-600">Verifying authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Render the protected component if authenticated
+  return element;
+};
 
 const App: React.FC = () => {
   const getSiteName = () => {
@@ -21,11 +57,13 @@ const App: React.FC = () => {
     >
       <Router>
         <Routes>
-          {/* Login Route */}
+          {/* Login Route - Publicly accessible */}
           <Route path="/login" element={<Login />} />
 
-          {/* Main Layout Routes */}
-          <Route path="/*" element={<MainLayout />} />
+          {/* Protected Routes - Requires authentication */}
+          <Route path="/*" element={
+            <ProtectedRoute element={<MainLayout />} />
+          } />
         </Routes>
       </Router>
     </FrappeProvider>

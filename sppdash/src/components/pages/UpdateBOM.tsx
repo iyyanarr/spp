@@ -92,11 +92,15 @@ const UpdateBOM: React.FC = () => {
   const [batchItemsError, setBatchItemsError] = useState<string | null>(null);
   const [batchBOMsError, setBatchBOMsError] = useState<string | null>(null);
   const [selectedBatchBOM, setSelectedBatchBOM] = useState<string>("");
+  const [batchItemsManuallyLoaded, setBatchItemsManuallyLoaded] = useState(false);
 
   // Add state variables to track which BOM views are visible
   const [showFinalBatchBOMDetails, setShowFinalBatchBOMDetails] = useState(false);
   const [showMasterBatchBOMDetails, setShowMasterBatchBOMDetails] = useState(false);
   const [showBatchBOMDetails, setShowBatchBOMDetails] = useState(false);
+
+  // Add a state variable to track if batches were explicitly loaded by user action
+  const [batchesExplicitlyLoaded, setBatchesExplicitlyLoaded] = useState(false);
 
   // Fetch item list
   const { data, isLoading, error } = useFrappeGetDocList<Item>("Item", {
@@ -243,7 +247,7 @@ const UpdateBOM: React.FC = () => {
     }
   }, []);
 
-  // Add this hook to fetch Master Batch BOM details
+  // Fix the useFrappeGetDoc hook for Master Batch BOM details
   const {
     data: masterBatchBOMDetails,
     isLoading: isMasterBatchBOMDetailsLoading,
@@ -253,50 +257,50 @@ const UpdateBOM: React.FC = () => {
     selectedMasterBatchBOM || "", 
     {
       fields: ["name", "company", "item", "item_name", "quantity", "uom", "items"],
-      enabled: !!selectedMasterBatchBOM, // Only fetch when a Master Batch BOM is selected
+      enabled: !!selectedMasterBatchBOM && selectedMasterBatchBOM.length > 0 && batchItemsManuallyLoaded,
     }
   );
 
-  // Add an effect to handle the Master Batch BOM details data
+  // Add useEffect to handle fetch when selectedMasterBatchBOM changes
   useEffect(() => {
-    // Reset loading state when the selection changes
-    if (!selectedMasterBatchBOM) {
+    // Only process if we've manually selected a Master Batch BOM
+    if (!batchItemsManuallyLoaded || !selectedMasterBatchBOM) {
       setBatchItems([]);
       setIsBatchItemsLoading(false);
-      setBatchItemsError(null);
       return;
     }
     
-    if (masterBatchBOMDetails && masterBatchBOMDetails.items && Array.isArray(masterBatchBOMDetails.items)) {
-      // Convert the items from the BOM details to the format needed for batch items
-      const items = masterBatchBOMDetails.items.map(item => ({
-        item_code: item.item_code || "",
-        item_name: item.item_name || ""
-      }));
-      
-      setBatchItems(items);
-      setBatchItemsError(null);
-    } else if (masterBatchBOMDetails) {
-      // We have the BOM details but no valid items
-      setBatchItems([]);
-      setBatchItemsError("No valid items found in this BOM");
+    // Show loading state while fetching
+    if (isMasterBatchBOMDetailsLoading) {
+      setIsBatchItemsLoading(true);
+      return;
     }
     
-    // Always reset loading state when we have a response
-    if (masterBatchBOMDetails || masterBatchBOMDetailsError) {
-      setIsBatchItemsLoading(false);
-    }
-  }, [selectedMasterBatchBOM, masterBatchBOMDetails, masterBatchBOMDetailsError]);
-
-  // Add an effect to handle errors from the hook
-  useEffect(() => {
+    // Handle error state
     if (masterBatchBOMDetailsError) {
-      console.error("Error fetching Master Batch BOM details:", masterBatchBOMDetailsError);
-      setBatchItemsError("Failed to fetch items for this Master Batch BOM");
       setBatchItems([]);
+      setBatchItemsError("Failed to fetch items for this Master Batch BOM");
+      setIsBatchItemsLoading(false);
+      return;
+    }
+    
+    // Process the data once we have it
+    if (masterBatchBOMDetails && masterBatchBOMDetails.items) {
+      if (Array.isArray(masterBatchBOMDetails.items) && masterBatchBOMDetails.items.length > 0) {
+        const items = masterBatchBOMDetails.items.map(item => ({
+          item_code: item.item_code || "",
+          item_name: item.item_name || ""
+        }));
+        
+        setBatchItems(items);
+        setBatchItemsError(null);
+      } else {
+        setBatchItems([]);
+        setBatchItemsError("No valid items found in this BOM");
+      }
       setIsBatchItemsLoading(false);
     }
-  }, [masterBatchBOMDetailsError]);
+  }, [selectedMasterBatchBOM, masterBatchBOMDetails, masterBatchBOMDetailsError, isMasterBatchBOMDetailsLoading, batchItemsManuallyLoaded]);
 
   // Update the Master Batch BOM selection handler
   const handleMasterBatchBOMChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -311,10 +315,13 @@ const UpdateBOM: React.FC = () => {
     // Set the selected Master Batch BOM
     setSelectedMasterBatchBOM(bomName);
     
-    // Set loading state for batch items - will be reset in the useEffect when data is loaded
+    // Set loading state for batch items and mark that we're explicitly loading
     if (bomName) {
       setIsBatchItemsLoading(true);
       setBatchItemsError(null);
+      setBatchesExplicitlyLoaded(true); // Set the flag when user makes selection
+    } else {
+      setBatchesExplicitlyLoaded(false); // Reset flag when selection is cleared
     }
   }, []);
 
@@ -391,6 +398,41 @@ const UpdateBOM: React.FC = () => {
       enabled: !!selectedItem, // Only fetch when an item is selected
     }
   );
+
+  // Add a cleanup effect
+  useEffect(() => {
+    // This will run when the component unmounts or when selectedItem changes
+    return () => {
+      // Reset all selection states
+      setSelectedBOM("");
+      setSelectedFinalBatch("");
+      setSelectedFinalBatchBOM("");
+      setSelectedMasterBatch("");
+      setSelectedMasterBatchBOM("");
+      setSelectedBatch("");
+      setSelectedBatchBOM("");
+      
+      // Reset data states
+      setBatchItems([]);
+      setFinalBatchBOMs([]);
+      setMasterBatchBOMs([]);
+      setBatchBOMs([]);
+      
+      // Reset error states
+      setBatchItemsError(null);
+      setFinalBatchBOMError(null);
+      setMasterBatchBOMError(null);
+      setBatchBOMsError(null);
+      setBatchesExplicitlyLoaded(false); // Reset flag on component unmount
+    };
+  }, [selectedItem]);
+
+  // Add an initialization effect
+  useEffect(() => {
+    // Clear batch items on component mount
+    setBatchItems([]);
+    setSelectedBatch("");
+  }, []);
 
   return (
     <div className="w-full h-full p-4 bg-gray-50">
@@ -842,14 +884,18 @@ const UpdateBOM: React.FC = () => {
                 value={selectedBatch}
                 onChange={handleBatchChange}
                 className="col-span-4 p-2 border rounded focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
-                disabled={!selectedMasterBatchBOM || isMasterBatchBOMDetailsLoading || isBatchItemsLoading}
+                disabled={!selectedMasterBatchBOM || !batchItemsManuallyLoaded || isMasterBatchBOMDetailsLoading || isBatchItemsLoading}
               >
                 <option value="">Select Batch</option>
-                {isMasterBatchBOMDetailsLoading || isBatchItemsLoading ? (
+                {!selectedMasterBatchBOM ? (
+                  <option value="" disabled>Select Master Batch BOM first</option>
+                ) : !batchItemsManuallyLoaded ? (
+                  <option value="" disabled>Please select Master Batch BOM again</option>
+                ) : isMasterBatchBOMDetailsLoading || isBatchItemsLoading ? (
                   <option value="" disabled>Loading batches...</option>
                 ) : batchItemsError ? (
                   <option value="" disabled>{batchItemsError}</option>
-                ) : batchItems.length === 0 && selectedMasterBatchBOM ? (
+                ) : batchItems.length === 0 ? (
                   <option value="" disabled>No batches available</option>
                 ) : (
                   batchItems.map((item, idx) => (
@@ -874,7 +920,7 @@ const UpdateBOM: React.FC = () => {
                 {isBatchBOMsLoading ? (
                   <option value="" disabled>Loading BOMs...</option>
                 ) : batchBOMsError ? (
-                  <option value="" disabled>Error loading BOMs</option>
+                  <option value="" disabled>{batchBOMsError}</option>
                 ) : batchBOMs.length === 0 && selectedBatch ? (
                   <option value="" disabled>No BOMs found</option>
                 ) : (

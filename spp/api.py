@@ -129,7 +129,7 @@ def fetch_bom_details(bom_name, level, max_depth):
     # Recursively fetch child BOMs
     child_boms = []
     for material in raw_materials:
-        if material.get("has_bom") and material.get("next_bom"):
+        if (material.get("has_bom") and material.get("next_bom")):
             child_boms.append(fetch_bom_details(material.get("next_bom"), level=level + 1, max_depth=max_depth))
     
     # Prepare the BOM data for this level
@@ -149,3 +149,94 @@ def fetch_bom_details(bom_name, level, max_depth):
     }
     
     return bom_data
+
+@frappe.whitelist()
+def create_lot_resource_tagging():
+    """
+    Custom API to create Lot Resource Tagging documents.
+    :return: A dictionary with the result of the operation.
+    """
+    try:
+        # Retrieve 'data' from frappe.form_dict
+        data = frappe.form_dict.get("data")
+        if not data:
+            frappe.throw("Missing 'data' parameter in the request.")
+
+        # Print raw data for debugging
+        print("Raw data received:", data)
+
+        # Log raw data with shorter title
+        frappe.log_error(message=f"Raw data: {data}", title="LRT Debug")
+
+        # Parse 'data' if it's a JSON string
+        if isinstance(data, str):
+            data = frappe.parse_json(data)
+            
+        # Print parsed data for debugging
+        print("Parsed data:", data)
+
+        # Validate required fields
+        required_fields = ["scan_lot_no", "scan_operator", "operation_type"]
+        for field in required_fields:
+            if not data.get(field):
+                frappe.throw(f"Missing required field: {field}")
+
+        # Additional validation for scan_operator
+        if not frappe.db.exists("Employee", data["scan_operator"]):
+            frappe.throw(f"Invalid Operator ID: {data['scan_operator']}")
+            
+        # First call validate_lot_number to get the BOM operations
+        from shree_polymer_custom_app.shree_polymer_custom_app.doctype.lot_resource_tagging.lot_resource_tagging import validate_lot_number
+        
+        try:
+            # This will validate the lot number and provide BOM operations
+            validation_result = validate_lot_number(data["scan_lot_no"], data["operation_type"])
+            print("Validation result:", validation_result)
+            
+            # If validation failed, throw an error
+            if isinstance(validation_result, dict) and validation_result.get('status') == 'failed':
+                frappe.throw(validation_result.get('message', 'Validation failed'))
+                
+        except Exception as validation_error:
+            frappe.log_error(message=f"Validation error: {str(validation_error)}", 
+                          title="LRT Validation Error")
+            frappe.throw(f"Validation error: {str(validation_error)}")
+
+        # Import current date function
+        from frappe.utils import today
+        
+        # Create the document with parameters including all required fields
+        doc_data = {
+            "doctype": "Lot Resource Tagging",
+            "scan_lot_no": data["scan_lot_no"],
+            "operator_id": data["scan_operator"],
+            "scan_operator": data["scan_operator"],
+            "operation_type": data["operation_type"],
+            "operations": data.get("operations", ""),
+            "product_ref": data.get("product_ref", ""),
+            "bom_no": data.get("bom_no", ""),
+            
+            # Add the missing mandatory fields
+            "batch_no": data.get("batch_no", data["scan_lot_no"]),  # Use scan_lot_no as fallback
+            "available_qty": data.get("available_qty", "1"),  # Default to 1 if not provided
+            "posting_date": data.get("posting_date", today()),  # Use current date as fallback
+            "qtynos": data.get("qtynos", "1"),  # Default to 1 if not provided
+            
+            "docstatus": 0  # Draft
+        }
+        
+        # Log the final document data before creation
+        frappe.log_error(message=f"Doc data: {doc_data}", title="LRT Creation")
+        
+        # Create the document
+        doc = frappe.get_doc(doc_data)
+        doc.insert()
+        frappe.db.commit()
+
+        return {"success": True, "name": doc.name}
+
+    except Exception as e:
+        error_traceback = frappe.get_traceback()
+        print("Error creating Lot Resource Tagging:", error_traceback)
+        frappe.log_error(message=error_traceback, title="LRT API Error")
+        return {"success": False, "error": str(e)}
