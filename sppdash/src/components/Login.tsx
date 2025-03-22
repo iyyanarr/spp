@@ -41,6 +41,15 @@ const Login: React.FC = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
+        {/* Logo Section */}
+        <div className="flex justify-center">
+          <img 
+            src="https://sppindia.com/sppwebsite/wp-content/uploads/2015/03/SPP_India_LOGO.png" 
+            alt="SPP India Logo" 
+            className="h-16 object-contain mb-4"
+          />
+        </div>
+        
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900">Login to SPP Dashboard</h1>
           <p className="mt-2 text-sm text-gray-600">Enter your credentials to access your account</p>

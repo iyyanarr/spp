@@ -71,7 +71,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, toggleSidebar }) => {
     >
       {/* Sidebar Header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-border">
-        <h2 className={`text-xl font-bold ${!isSidebarOpen && "lg:hidden"}`}>AppName</h2>
+        <div className={`flex items-center ${!isSidebarOpen && "lg:hidden"}`}>
+          <img 
+            src="https://sppindia.com/sppwebsite/wp-content/uploads/2015/03/SPP_India_LOGO.png" 
+            alt="SPP India Logo" 
+            className={`${isSidebarOpen ? 'h-15': 'h-12'} object-contain`}
+          />
+        </div>
+        
+        {/* Only show small logo when sidebar is collapsed on large screens */}
+        {!isSidebarOpen && (
+          <div className="hidden lg:flex items-center justify-center">
+            <img 
+              src="https://sppindia.com/sppwebsite/wp-content/uploads/2015/03/SPP_India_LOGO.png" 
+              alt="SPP India Logo" 
+              className="h-8 w-auto object-contain"
+            />
+          </div>
+        )}
+        
         <Button 
           variant="ghost" 
           size="icon" 

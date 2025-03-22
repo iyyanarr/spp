@@ -182,9 +182,115 @@ const SubLotProcessing: React.FC = () => {
     }
     
     .animated-gradient {
-      background: linear-gradient(45deg, #3b82f6, #60a5fa, #93c5fd, #60a5fa, #3b82f6);
+      background: linear-gradient(45deg, #0d9488, #10b981, #34d399, #10b981, #0d9488);
       background-size: 200% 200%;
       animation: progressAnimation 2s ease infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+    
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); transform: scale(1); }
+      70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); transform: scale(1.02); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); transform: scale(1); }
+    }
+    
+    @keyframes slideInRight {
+      from { transform: translateX(30px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes scaleIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes borderPulse {
+      0% { border-color: rgba(99, 102, 241, 0.3); }
+      50% { border-color: rgba(99, 102, 241, 1); }
+      100% { border-color: rgba(99, 102, 241, 0.3); }
+    }
+
+    .animate-border-pulse { animation: borderPulse 2s infinite ease-in-out; }
+    .animate-fade-in-up { animation: fadeInUp 0.4s ease-out; }
+    .animate-pulse-subtle { animation: pulse 3s infinite; }
+    .animate-slide-in-right { animation: slideInRight 0.3s ease-out; }
+    .animate-fade-in-down { animation: fadeInDown 0.4s ease-out; }
+    .animate-scale-in { animation: scaleIn 0.3s ease-out; }
+    
+    @keyframes progressAnimation {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    .animated-gradient {
+      background: linear-gradient(45deg, #4f46e5, #6366f1, #818cf8, #6366f1, #4f46e5);
+      background-size: 200% 200%;
+      animation: progressAnimation 2s ease infinite;
+    }
+
+    .shimmer {
+      background: linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      background-size: 1000px 100%;
+      animation: shimmer 2s infinite;
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .depth-card {
+      box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+        0 2px 4px -1px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .hover-lift {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .hover-lift:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .section-border {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .section-border::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      height: 3px;
+      width: 100%;
+      background: linear-gradient(to right, #4f46e5, #8b5cf6, #d946ef);
+    }
+
+    .frost-glass {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px) saturate(180%);
+      border: 1px solid rgba(209, 213, 219, 0.3);
     }
   `;
 
@@ -1045,66 +1151,82 @@ const SubLotProcessing: React.FC = () => {
 
   // Main component render
   return (
-    <div className="w-full min-h-screen bg-slate-50 p-4">
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-4 md:p-6">
       <style>{animationStyles}</style>
       
       <LoadingOverlay />
       <SuccessNotification />
       
-      {/* Remove max-width constraint to use full width */}
-      <div className="w-full">
-        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
-          <div className="bg-blue-600 p-4 md:p-6">
+      <div className="w-full animate-fade-in-up">
+        <div className="glass-card rounded-xl shadow-xl overflow-hidden border border-slate-200">
+          {/* Header with gradient background */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 md:p-6 shadow-lg">
             <div className="flex justify-between items-center">
               <h1 className="text-xl md:text-2xl font-bold text-white flex items-center">
-                <Layers className="mr-2 h-5 w-5 md:h-6 md:w-6" />
+                <div className="mr-3 p-2 bg-white/20 rounded-lg shadow-inner">
+                  <Layers className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                </div>
                 Sub Lot Processing
               </h1>
               
-              {/* Status message */}
+              {/* Status message with animation */}
               {processingStatus && !isLoading && (
-                <div className="px-3 py-1 bg-blue-500 rounded-full text-sm text-white">
+                <div className="px-4 py-1.5 bg-teal-500/70 backdrop-blur-sm rounded-full text-sm text-white animate-scale-in shadow-lg border border-teal-400/30 flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>
                   {processingStatus}
                 </div>
               )}
             </div>
           </div>
           
-          <div className="p-4 md:p-6">
+          <div className="p-5 md:p-8">
             {/* Error display */}
             <ErrorNotification />
             
             {/* Batch Information Section */}
-            <div className="mb-6 border border-slate-200 rounded-lg overflow-hidden bg-white">
-              <div className="px-4 py-3 bg-blue-50 border-b border-slate-200">
+            <div className="mb-8 hover-lift depth-card rounded-xl overflow-hidden bg-white">
+              <div className="px-5 py-4 bg-gradient-to-r from-blue-500/10 to-blue-600/5 border-b border-slate-200 section-border">
                 <h3 className="font-semibold text-slate-800 flex items-center">
-                  <BarChart2 className="mr-2 h-4 w-4 text-blue-500" />
+                  <div className="mr-3 p-1.5 rounded-md bg-blue-100 text-blue-600">
+                    <BarChart2 className="h-5 w-5" />
+                  </div>
                   Batch Information
                 </h3>
               </div>
               
-              <div className="p-4">
+              <div className="p-5">
                 {/* First Row - Scan Batch - use full width grid */}
-                <div className="mb-4">
+                <div className="mb-5 group">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-                    <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="scan-spp">
+                    <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700 group-focus-within:text-indigo-700 transition-colors" htmlFor="scan-spp">
                       Scan SPP Batch:
                     </label>
                     <div className="lg:col-span-4 flex gap-2">
-                      <Input 
-                        id="scan-spp" 
-                        placeholder="Batch ID" 
-                        className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-300" 
-                        value={batchId}
-                        onChange={(e) => setBatchId(e.target.value)}
-                      />
+                      <div className="flex-1 relative">
+                        <Input 
+                          id="scan-spp" 
+                          placeholder="Batch ID" 
+                          className="w-full p-2.5 bg-slate-50/80 border-slate-200 rounded-lg transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400" 
+                          value={batchId}
+                          onChange={(e) => setBatchId(e.target.value)}
+                        />
+                        {!batchId && (
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50">
+                            <div className="w-0.5 h-4 bg-slate-300 animate-pulse"></div>
+                          </div>
+                        )}
+                      </div>
                       <Button 
                         variant="outline" 
-                        className="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                        className="bg-gradient-to-b from-blue-50 to-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-sm hover:shadow transition-all"
                         onClick={handleScanBatch}
                         disabled={!batchId || isLoading}
                       >
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                     
@@ -1114,15 +1236,15 @@ const SubLotProcessing: React.FC = () => {
                     <Input 
                       id="batch-no" 
                       placeholder="Batch No" 
-                      className="lg:col-span-4 p-2 bg-slate-50 border rounded" 
+                      className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg" 
                       value={batchNo}
                       readOnly
                     />
                   </div>
                 </div>
                 
-                {/* Second & Third rows follow similar pattern */}
-                <div className="mb-4">
+                {/* Other batch info rows with the same enhanced styling */}
+                <div className="mb-5">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
                     <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="item-code">
                       Item Code:
@@ -1130,7 +1252,7 @@ const SubLotProcessing: React.FC = () => {
                     <Input 
                       id="item-code" 
                       placeholder="Item Code" 
-                      className="lg:col-span-4 p-2 bg-slate-50 border rounded" 
+                      className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg" 
                       value={itemCode}
                       readOnly
                     />
@@ -1141,7 +1263,7 @@ const SubLotProcessing: React.FC = () => {
                     <Input 
                       id="warehouse" 
                       placeholder="Warehouse" 
-                      className="lg:col-span-4 p-2 bg-slate-50 border rounded" 
+                      className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg" 
                       value={warehouse}
                       readOnly
                     />
@@ -1156,7 +1278,7 @@ const SubLotProcessing: React.FC = () => {
                     <Input 
                       id="qty" 
                       placeholder="Available Quantity" 
-                      className="lg:col-span-4 p-2 bg-slate-50 border rounded" 
+                      className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg" 
                       value={quantity}
                       readOnly
                     />
@@ -1165,36 +1287,44 @@ const SubLotProcessing: React.FC = () => {
               </div>
             </div>
             
-            {/* Two-column layout for Employee/Operations and Inspection/Rejections 
-                 Update to ensure full width and responsive layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 mb-6">
+            {/* Two-column layout with enhanced styling */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
               {/* Left Column - Employee and Operations */}
-              <div className="space-y-4 w-full">
+              <div className="space-y-6 w-full animate-fade-in-up" style={{animationDelay: '0.1s'}}>
                 {/* Employee Scanning Section */}
-                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                  <div className="px-4 py-3 bg-indigo-50 border-b border-slate-200">
+                <div className="hover-lift depth-card rounded-xl overflow-hidden bg-white">
+                  <div className="px-5 py-4 bg-gradient-to-r from-indigo-500/10 to-indigo-600/5 border-b border-slate-200 section-border">
                     <h3 className="font-semibold text-slate-800 flex items-center">
-                      <UserCheck className="mr-2 h-4 w-4 text-indigo-500" />
+                      <div className="mr-3 p-1.5 rounded-md bg-indigo-100 text-indigo-600">
+                        <UserCheck className="h-5 w-5" />
+                      </div>
                       Employee Information
                     </h3>
                   </div>
                   
-                  <div className="p-4">
-                    <div className="flex items-center gap-2">
+                  <div className="p-5">
+                    <div className="flex items-center gap-3">
                       <label className="text-sm font-medium whitespace-nowrap text-slate-700 w-1/3" htmlFor="scan-emp">
                         Scan Employee:
                       </label>
                       <div className="flex gap-2 w-2/3">
-                        <Input 
-                          id="scan-emp" 
-                          placeholder="Employee ID (e.g., PC-0001)" 
-                          className="flex-1 p-2 border rounded focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300" 
-                          value={employeeId}
-                          onChange={(e) => setEmployeeId(e.target.value)}
-                        />
+                        <div className="flex-1 relative">
+                          <Input 
+                            id="scan-emp" 
+                            placeholder="Employee ID (e.g., PC-0001)" 
+                            className="w-full p-2.5 bg-slate-50/80 border-slate-200 rounded-lg transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400" 
+                            value={employeeId}
+                            onChange={(e) => setEmployeeId(e.target.value)}
+                          />
+                          {!employeeId && (
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50">
+                              <div className="w-0.5 h-4 bg-slate-300 animate-pulse"></div>
+                            </div>
+                          )}
+                        </div>
                         <Button 
                           variant="outline" 
-                          className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200"
+                          className="bg-gradient-to-b from-indigo-50 to-indigo-100 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-sm hover:shadow transition-all"
                           onClick={handleScanEmployee}
                           disabled={!employeeId}
                         >
@@ -1205,36 +1335,40 @@ const SubLotProcessing: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Operation Information Table */}
-                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                  <div className="px-4 py-3 bg-indigo-500 text-white">
+                {/* Operation Information Table with enhanced styling */}
+                <div className="hover-lift depth-card rounded-xl overflow-hidden bg-white shadow-md">
+                  <div className="px-5 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm">
                     <h3 className="font-semibold flex items-center justify-center">
-                      <Clipboard className="mr-2 h-4 w-4" />
+                      <Clipboard className="mr-2 h-5 w-5" />
                       Operation Details
                     </h3>
                   </div>
                   <div className="max-h-[320px] overflow-y-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-indigo-50">
-                          <TableHead className="font-semibold text-indigo-600">Operation</TableHead>
-                          <TableHead className="font-semibold text-indigo-600">Employee Code</TableHead>
-                          <TableHead className="font-semibold text-indigo-600">Employee Name</TableHead>
-                          <TableHead className="font-semibold text-indigo-600 w-16">Action</TableHead>
+                        <TableRow className="bg-indigo-50 border-b border-indigo-100">
+                          <TableHead className="font-semibold text-indigo-600 py-3">Operation</TableHead>
+                          <TableHead className="font-semibold text-indigo-600 py-3">Employee Code</TableHead>
+                          <TableHead className="font-semibold text-indigo-600 py-3">Employee Name</TableHead>
+                          <TableHead className="font-semibold text-indigo-600 w-16 py-3">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {operationDetails.length > 0 ? (
-                          operationDetails.map((operation) => (
-                            <TableRow key={operation.id} className="border-b border-slate-100 hover:bg-slate-50">
-                              <TableCell>{operation.operationId}</TableCell>
-                              <TableCell>{operation.employeeCode}</TableCell>
-                              <TableCell>{operation.employeeName}</TableCell>
-                              <TableCell>
+                          operationDetails.map((operation, index) => (
+                            <TableRow 
+                              key={operation.id} 
+                              className="border-b border-slate-100 hover:bg-slate-50 transition-colors animate-fade-in-up"
+                              style={{ animationDelay: `${index * 0.05}s` }}
+                            >
+                              <TableCell className="py-3">{operation.operationId}</TableCell>
+                              <TableCell className="py-3">{operation.employeeCode}</TableCell>
+                              <TableCell className="py-3">{operation.employeeName}</TableCell>
+                              <TableCell className="py-3">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-full"
+                                  className="h-8 w-8 p-0 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                                   onClick={() => handleRemoveOperation(operation.id)}
                                 >
                                   <span className="sr-only">Remove</span>
@@ -1245,11 +1379,14 @@ const SubLotProcessing: React.FC = () => {
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center text-slate-500 py-8">
+                            <TableCell colSpan={4} className="text-center text-slate-500 py-12">
                               <div className="flex flex-col items-center">
-                                <Clipboard className="h-8 w-8 text-slate-300 mb-2" />
-                                <p>No operations added yet</p>
-                                <p className="text-xs text-slate-400">Scan employee code to add operation</p>
+                                <div className="relative p-4 mb-2 rounded-full bg-slate-50">
+                                  <Clipboard className="h-8 w-8 text-slate-300" />
+                                  <div className="absolute inset-0 rounded-full border-2 border-dashed border-slate-200 animate-spin" style={{animationDuration: '8s'}}></div>
+                                </div>
+                                <p className="font-medium text-slate-600">No operations added yet</p>
+                                <p className="text-xs text-slate-400 mt-1">Scan employee code to add operation</p>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -1261,29 +1398,40 @@ const SubLotProcessing: React.FC = () => {
               </div>
               
               {/* Right Column - Inspection and Rejections */}
-              <div className="space-y-4 w-full">
-                {/* Inspection Information Section */}
-                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                  <div className="px-4 py-3 bg-blue-50 border-b border-slate-200">
+              <div className="space-y-6 w-full animate-fade-in-up" style={{animationDelay: '0.2s'}}>
+                {/* Inspection Information Section with enhanced styling */}
+                <div className="hover-lift depth-card rounded-xl overflow-hidden bg-white">
+                  <div className="px-5 py-4 bg-gradient-to-r from-blue-500/10 to-blue-600/5 border-b border-slate-200 section-border">
                     <h3 className="font-semibold text-slate-800 flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" />
+                      <div className="mr-3 p-1.5 rounded-md bg-blue-100 text-blue-600">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
                       Inspection Information
                     </h3>
                   </div>
                   
-                  <div className="p-4 space-y-4">
+                  <div className="p-5 space-y-5">
                     <div className="flex items-center gap-4">
                       <label className="text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="total-inspection">
                         Inspection Qty: <span className="text-red-500">*</span>
                       </label>
-                      <Input 
-                        id="total-inspection" 
-                        placeholder="Inspection Quantity" 
-                        className={`flex-1 p-2 border rounded ${!inspectionQty ? "border-red-300" : ""} focus:ring-2 focus:ring-blue-300 focus:border-blue-300`}
-                        value={inspectionQty}
-                        onChange={(e) => setInspectionQty(e.target.value)}
-                        required
-                      />
+                      <div className="flex-1 relative">
+                        <Input 
+                          id="total-inspection" 
+                          placeholder="Inspection Quantity" 
+                          className={`w-full p-2.5 bg-slate-50/80 rounded-lg transition 
+                            ${!inspectionQty ? "border-red-300 animate-border-pulse" : "border-slate-200"}
+                            focus:ring-2 focus:ring-blue-400 focus:border-blue-400`}
+                          value={inspectionQty}
+                          onChange={(e) => setInspectionQty(e.target.value)}
+                          required
+                        />
+                        {!inspectionQty && (
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50">
+                            <div className="w-0.5 h-4 bg-red-300 animate-pulse"></div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-4">
@@ -1291,17 +1439,26 @@ const SubLotProcessing: React.FC = () => {
                         Emp Barcode: <span className="text-red-500">*</span>
                       </label>
                       <div className="flex gap-2 flex-1">
-                        <Input 
-                          id="emp-barcode" 
-                          placeholder="HR-EMP-00001" 
-                          className={`flex-1 p-2 border rounded ${!employeeBarcode ? "border-red-300" : ""} focus:ring-2 focus:ring-blue-300 focus:border-blue-300`}
-                          value={employeeBarcode}
-                          onChange={(e) => setEmployeeBarcode(e.target.value)}
-                          required
-                        />
+                        <div className="flex-1 relative">
+                          <Input 
+                            id="emp-barcode" 
+                            placeholder="HR-EMP-00001" 
+                            className={`w-full p-2.5 bg-slate-50/80 rounded-lg transition 
+                              ${!employeeBarcode ? "border-red-300 animate-border-pulse" : "border-slate-200"}
+                              focus:ring-2 focus:ring-blue-400 focus:border-blue-400`}
+                            value={employeeBarcode}
+                            onChange={(e) => setEmployeeBarcode(e.target.value)}
+                            required
+                          />
+                          {!employeeBarcode && (
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50">
+                              <div className="w-0.5 h-4 bg-red-300 animate-pulse"></div>
+                            </div>
+                          )}
+                        </div>
                         <Button 
                           variant="outline" 
-                          className="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                          className="bg-gradient-to-b from-blue-50 to-blue-100 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg shadow-sm hover:shadow transition-all"
                           onClick={handleScanEmployeeBarcode}
                           disabled={!employeeBarcode || isLoading}
                         >
@@ -1310,16 +1467,18 @@ const SubLotProcessing: React.FC = () => {
                       </div>
                     </div>
                     
-                    {/* Show employee info if available */}
+                    {/* Show employee info if available - with animation and enhanced styling */}
                     {scannedEmployee && (
-                      <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                      <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-inner animate-fade-in-down">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center">
-                            <UserCheck className="h-4 w-4 text-blue-500 mr-2" />
+                            <div className="mr-3 p-1.5 bg-white rounded-full border border-blue-200 shadow-sm">
+                              <UserCheck className="h-5 w-5 text-blue-500" />
+                            </div>
                             <span className="text-sm font-medium text-blue-700">{scannedEmployee.name}</span>
                           </div>
                           <div>
-                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                            <span className="text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-full border border-blue-200 shadow-sm">
                               {scannedEmployee.code}
                             </span>
                           </div>
@@ -1329,29 +1488,33 @@ const SubLotProcessing: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Rejection Information Table */}
-                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                  <div className="px-4 py-3 bg-amber-500 text-white">
+                {/* Rejection Information Table with enhanced styling */}
+                <div className="hover-lift depth-card rounded-xl overflow-hidden bg-white shadow-md">
+                  <div className="px-5 py-4 bg-gradient-to-r from-amber-600 to-amber-500 text-white shadow-sm">
                     <h3 className="font-semibold flex items-center justify-center">
-                      <AlertCircle className="mr-2 h-4 w-4" />
+                      <AlertCircle className="mr-2 h-5 w-5" />
                       Rejection Details
                     </h3>
                   </div>
                   <div className="max-h-[320px] overflow-y-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-amber-50">
-                          <TableHead className="font-semibold text-amber-700">S.No</TableHead>
-                          <TableHead className="font-semibold text-amber-700">Rejection Type</TableHead>
-                          <TableHead className="font-semibold text-amber-700">Rejection Qty</TableHead>
+                        <TableRow className="bg-amber-50 border-b border-amber-100">
+                          <TableHead className="font-semibold text-amber-700 py-3">S.No</TableHead>
+                          <TableHead className="font-semibold text-amber-700 py-3">Rejection Type</TableHead>
+                          <TableHead className="font-semibold text-amber-700 py-3">Rejection Qty</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {rejectionDetails.map((rejection) => (
-                          <TableRow key={rejection.id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <TableCell>{rejection.id}</TableCell>
-                            <TableCell>{rejection.type}</TableCell>
-                            <TableCell>
+                        {rejectionDetails.map((rejection, index) => (
+                          <TableRow 
+                            key={rejection.id} 
+                            className={`border-b border-slate-100 hover:bg-amber-50/50 transition-colors
+                              ${parseFloat(rejection.qty) > 0 ? 'bg-amber-50/30' : ''}`}
+                          >
+                            <TableCell className="py-2.5">{rejection.id}</TableCell>
+                            <TableCell className="py-2.5">{rejection.type}</TableCell>
+                            <TableCell className="py-2.5">
                               <Input
                                 type="number"
                                 min="0"
@@ -1364,7 +1527,10 @@ const SubLotProcessing: React.FC = () => {
                                     setRejectionDetails(newRejections);
                                   }
                                 }}
-                                className="w-full p-1 text-sm border border-slate-200 rounded"
+                                className={`w-full p-1.5 text-sm border rounded-md transition-all
+                                  ${parseFloat(rejection.qty) > 0 
+                                    ? 'border-amber-300 bg-amber-50 focus:ring-amber-400 focus:border-amber-400' 
+                                    : 'border-slate-200 bg-slate-50/80 focus:ring-slate-400'}`}
                               />
                             </TableCell>
                           </TableRow>
@@ -1376,21 +1542,21 @@ const SubLotProcessing: React.FC = () => {
               </div>
             </div>
             
-            {/* Action Buttons */}
-            <div className="flex justify-end mt-6">
+            {/* Action Buttons with enhanced styling */}
+            <div className="flex justify-end mt-8">
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md transition-colors flex items-center"
+                className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white px-8 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center animate-pulse-subtle"
                 onClick={handleSave}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <span className="flex items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Processing...
                   </span>
                 ) : (
                   <span className="flex items-center">
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="mr-2 h-5 w-5" />
                     Save
                   </span>
                 )}
