@@ -6,7 +6,7 @@ import Login from "./components/Login";
 
 // Protected Route component to handle authentication
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
-  const { currentUser, isAuthenticated, isLoading } = useFrappeAuth();
+  const { currentUser, isLoading } = useFrappeAuth();
   const location = useLocation();
   const [checking, setChecking] = useState(true);
 
@@ -32,7 +32,7 @@ const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) 
   }
 
   // Redirect to login if not authenticated
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
