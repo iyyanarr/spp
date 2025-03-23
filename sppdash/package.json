@@ -8,7 +8,7 @@
     "build": "vite build --base=/assets/spp/sppdash/ && yarn copy-html-entry",
     "lint": "eslint .",
     "preview": "vite preview",
-    "copy-html-entry": "cp ../spp/public/sppdash/index.html ../spp/www/sppdash.html"
+    "copy-html-entry": "cp ../spp/public/sppdash/index.html ../spp/www/spp.html"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
