@@ -7,4 +7,4 @@ node_modules
 __pycache__
 spp/public/sppdash
 spp/public/node_modules
-spp/www/sppdash.html
+spp/www/spp.html
