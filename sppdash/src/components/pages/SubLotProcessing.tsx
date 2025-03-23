@@ -659,6 +659,8 @@ const SubLotProcessing: React.FC = () => {
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
+          "X-Frappe-CSRF-Token": csrfToken || "",
+
         },
         body: JSON.stringify({
           doc: JSON.stringify(docObject),
@@ -789,6 +791,8 @@ const SubLotProcessing: React.FC = () => {
             headers: {
               "Content-Type": "application/json",
               "Accept": "application/json",
+              "X-Frappe-CSRF-Token": csrfToken || "",
+
             },
             body: JSON.stringify(payload),
           });
