@@ -106,6 +106,8 @@ const SubLotProcessing: React.FC = () => {
   const [employeeId, setEmployeeId] = useState<string>("");
   const [employeeBarcode, setEmployeeBarcode] = useState<string>("");
   const [inspectionQty, setInspectionQty] = useState<string>("");
+  const csrfToken = (window as any).csrf_token;
+
   
   const [scanError, setScanError] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -964,12 +966,15 @@ const SubLotProcessing: React.FC = () => {
     
     try {
       console.log("Validating lot number:", formattedData.batchInfo.sppBatchId);
+      console.log('csrfToken',csrfToken)
       
       const validationResponse = await fetch("/api/method/shree_polymer_custom_app.shree_polymer_custom_app.doctype.lot_resource_tagging.lot_resource_tagging.validate_lot_number", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
+          "X-Frappe-CSRF-Token": csrfToken || "",
+
         },
         body: JSON.stringify({
           barcode: formattedData.batchInfo.sppBatchId
