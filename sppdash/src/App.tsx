@@ -1,3 +1,4 @@
+
 import { FrappeProvider, useFrappeAuth } from 'frappe-react-sdk';
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
@@ -55,7 +56,7 @@ const App: React.FC = () => {
       socketPort={import.meta.env.VITE_SOCKET_PORT}
       siteName={getSiteName()}
     >
-      <Router>
+      <Router basename="/spp">
         <Routes>
           {/* Login Route - Publicly accessible */}
           <Route path="/login" element={<Login />} />
@@ -71,3 +72,8 @@ const App: React.FC = () => {
 };
 
 export default App;
+```
+
+Replace `"/your-base-path"` with the actual base path you want to set for your application. 
+
+For example, if your app is served from `/app`, you would use `basename="/app"`.
