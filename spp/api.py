@@ -515,107 +515,160 @@ def create_sub_lot_entry(batch_info, inspection_info, validation_data):
     - If inspection qty == available qty: Don't create sub-lot, use original lot
     - If inspection qty > available qty: Do stock reconciliation, then continue
     """
-    
-    original_lot_no = batch_info.get("sppBatchId")
-    posting_date = frappe.utils.today()
-    
-    # Extract and convert quantities to float for comparison
-    available_qty = float(batch_info.get("availableQuantity", "0"))
-    inspection_qty = float(inspection_info.get("inspectionQuantity", "0"))
-    
-    # Initialize sub_lot to None (in case we don't create one)
-    sub_lot = None
-    sub_lots_created = 0
-    
-    # CASE 1: If inspection quantity equals available quantity, don't create sub-lot
-    if abs(inspection_qty - available_qty) < 0.001:  # Use small epsilon for float comparison
+    try:
+        # Import the validation function from sub_lot_creation
+        from shree_polymer_custom_app.shree_polymer_custom_app.doctype.sub_lot_creation.sub_lot_creation import validate_lot
+        
+        original_lot_no = batch_info.get("sppBatchId")
+        posting_date = frappe.utils.today()
+        
+        # Log before validation
         frappe.log_error(
-            message=f"Inspection qty ({inspection_qty}) equals available qty ({available_qty}). Using original lot.",
-            title="Process Lot - Using Original Lot"
-        )
-        # Just return basic information without creating a new document
-        return {
-            "name": original_lot_no,
-            "sub_lot_no": original_lot_no,  # Same as original
-            "is_original": True
-        }
-    
-    # CASE 2: If inspection quantity > available quantity, perform stock reconciliation
-    elif inspection_qty > available_qty:
-        frappe.log_error(
-            message=f"Inspection qty ({inspection_qty}) > available qty ({available_qty}). Performing stock reconciliation.",
-            title="Process Lot - Stock Reconciliation"
+            message=f"Creating sub-lot for: {original_lot_no}, validating lot...", 
+            title="SubLot Creation - Start"
         )
         
-        # Perform stock reconciliation for the warehouse and item
-        try:
-            reconcile_stock(
-                item_code=batch_info.get("itemCode"),
-                warehouse=batch_info.get("warehouse"),
-                batch_no=batch_info.get("batchNo"),
-                qty=inspection_qty,
-                valuation_rate=None  # Use existing valuation rate
+        # First validate the lot using the existing function
+        # This function modifies frappe.local.response directly
+        validate_lot(original_lot_no)
+        
+        # Check if validation was successful by examining frappe.local.response
+        if hasattr(frappe.local, 'response') and hasattr(frappe.local.response, 'status'):
+            if frappe.local.response.status == "failed":
+                error_msg = frappe.local.response.message if hasattr(frappe.local.response, 'message') else "Lot validation failed"
+                frappe.log_error(
+                    message=f"Lot validation failed: {error_msg}", 
+                    title="SubLot Creation - Validation Error"
+                )
+                return {"status": "failed", "message": error_msg}
+            
+            # Get validated lot data from the response
+            lot_data = frappe.local.response.message if hasattr(frappe.local.response, 'message') else {}
+            
+            # Log successful validation
+            frappe.log_error(
+                message=f"Lot validation successful: {lot_data}", 
+                title="SubLot Creation - Validation Success"
+            )
+        else:
+            frappe.log_error(
+                message="Lot validation didn't return expected response structure", 
+                title="SubLot Creation - Validation Error"
+            )
+            return {"status": "failed", "message": "Lot validation returned unexpected response"}
+        
+        # Extract and convert quantities to float for comparison
+        available_qty = float(batch_info.get("availableQuantity", "0"))
+        inspection_qty = float(inspection_info.get("inspectionQuantity", "0"))
+        
+        # Initialize sub_lot to None (in case we don't create one)
+        sub_lot = None
+        sub_lots_created = 0
+        
+        # CASE 1: If inspection quantity equals available quantity, don't create sub-lot
+        if abs(inspection_qty - available_qty) < 0.001:  # Use small epsilon for float comparison
+            frappe.log_error(
+                message=f"Inspection qty ({inspection_qty}) equals available qty ({available_qty}). Using original lot.",
+                title="Process Lot - Using Original Lot"
+            )
+            # Just return basic information without creating a new document
+            return {
+                "name": original_lot_no,
+                "sub_lot_no": original_lot_no,  # Same as original
+                "is_original": True,
+                "batch_no": batch_info.get("batchNo"),
+                "qty": available_qty,
+                "warehouse": batch_info.get("warehouse")
+            }
+        
+        # CASE 2: If inspection quantity > available quantity, perform stock reconciliation
+        elif inspection_qty > available_qty:
+            frappe.log_error(
+                message=f"Inspection qty ({inspection_qty}) > available qty ({available_qty}). Performing stock reconciliation.",
+                title="Process Lot - Stock Reconciliation"
             )
             
-            # Update available quantity to match inspection quantity after reconciliation
-            available_qty = inspection_qty
-            batch_info["availableQuantity"] = str(inspection_qty)
+            # Perform stock reconciliation for the warehouse and item
+            try:
+                reconcile_stock(
+                    item_code=batch_info.get("itemCode"),
+                    warehouse=batch_info.get("warehouse"),
+                    batch_no=batch_info.get("batchNo"),
+                    qty=inspection_qty,
+                    valuation_rate=None  # Use existing valuation rate
+                )
+                
+                # Update available quantity to match inspection quantity after reconciliation
+                available_qty = inspection_qty
+                batch_info["availableQuantity"] = str(inspection_qty)
+                
+                frappe.log_error(
+                    message=f"Stock reconciled. New available qty: {inspection_qty}",
+                    title="Process Lot - Stock Reconciliation Complete"
+                )
+            except Exception as e:
+                frappe.log_error(
+                    message=f"Error during stock reconciliation: {str(e)}\n{frappe.get_traceback()}",
+                    title="Process Lot - Stock Reconciliation Failed"
+                )
+                raise e
+        
+        # CASE 3: Inspection quantity < available quantity, create sub-lot
+        if inspection_qty < available_qty:
+            # Create a new Sub Lot Creation document
+            sub_lot_doc = frappe.new_doc("Sub Lot Creation")
+            
+            # Set basic info
+            sub_lot_doc.scan_lot_no = original_lot_no
+            sub_lot_doc.item_code = batch_info.get("itemCode")
+            sub_lot_doc.batch_no = batch_info.get("batchNo")
+            sub_lot_doc.posting_date = posting_date
+            sub_lot_doc.available_qty = available_qty
+            sub_lot_doc.warehouse = batch_info.get("warehouse")
+            sub_lot_doc.qty = inspection_qty
+            sub_lot_doc.uom = "Nos"  # Default to Nos - adjust if needed
+            
+            # Set parent information from lot_data
+            if hasattr(lot_data, 'material_receipt_parent'):
+                sub_lot_doc.material_receipt_parent = lot_data.material_receipt_parent
+            
+            if hasattr(lot_data, 'deflashing_receipt_parent'):
+                sub_lot_doc.deflashing_receipt_parent = lot_data.deflashing_receipt_parent
+            
+            if hasattr(lot_data, 'lot_resource_tagging_parent'):
+                sub_lot_doc.lot_resource_tagging_parent = lot_data.lot_resource_tagging_parent
+            
+            if hasattr(lot_data, 'first_parent_lot_no'):
+                sub_lot_doc.first_parent_lot_no = lot_data.first_parent_lot_no
+            
+            if hasattr(lot_data, 'despatch_u1_parent'):
+                sub_lot_doc.despatch_u1_parent = lot_data.despatch_u1_parent
+            
+            # Insert and submit the document
+            sub_lot_doc.insert()
+            sub_lot_doc.submit()
+            
+            # Note: The sub_lot_no field will be automatically generated and updated
+            # upon submission through the update_sublot function called in on_submit
+            
+            # Reload to get the sub_lot_no
+            sub_lot_doc.reload()
             
             frappe.log_error(
-                message=f"Stock reconciled. New available qty: {inspection_qty}",
-                title="Process Lot - Stock Reconciliation Complete"
+                message=f"Created sub lot {sub_lot_doc.sub_lot_no} with qty {inspection_qty} from original lot {original_lot_no} with qty {available_qty}",
+                title="Process Lot - Sub Lot Creation"
             )
-        except Exception as e:
-            frappe.log_error(
-                message=f"Error during stock reconciliation: {str(e)}\n{frappe.get_traceback()}",
-                title="Process Lot - Stock Reconciliation Failed"
-            )
-            raise e
-    
-    # CASE 3: Inspection quantity < available quantity, create sub-lot
-    if inspection_qty < available_qty:
-        # Generate sub lot number by adding -1 to the original lot number
-        sub_lot_no = f"{original_lot_no}-1"
+            
+            return sub_lot_doc
         
-        # Generate barcode image
-        barcode_path = generate_barcode_for_sublot(sub_lot_no)
+        return {"status": "success", "message": "Process completed without creating sub lot"}
         
-        # Create document data
-        doc_data = {
-            "doctype": "Sub Lot Creation",
-            "scan_lot_no": original_lot_no,
-            "sub_lot_no": sub_lot_no,
-            "item_code": batch_info.get("itemCode"),
-            "batch_no": batch_info.get("batchNo"),
-            "posting_date": posting_date,
-            "available_qty": available_qty,
-            "warehouse": batch_info.get("warehouse"),
-            "qty": inspection_qty,
-            "available_qty_kgs": 0,  # Default to 0 as per example
-            "stock_entry_reference": validation_data.get("name", ""),
-            "uom": "Nos",  # Default to Nos - adjust if needed
-            "despatch_u1_parent": original_lot_no,
-            "barcode_attach": barcode_path,
-            "lrt_found": 0,
-            "docstatus": 1  # Submit the document
-        }
-        
-        # Create and insert the document
-        doc = frappe.get_doc(doc_data)
-        doc.insert()
-        
-        # Submit the document
-        doc.submit()
-        
-        sub_lot = doc
-        sub_lots_created = 1
-        
+    except Exception as e:
         frappe.log_error(
-            message=f"Created sub lot {sub_lot_no} with qty {inspection_qty} from original lot {original_lot_no} with qty {available_qty}",
-            title="Process Lot - Sub Lot Creation"
+            message=f"Error in create_sub_lot_entry: {str(e)}\n{frappe.get_traceback()}",
+            title="Process Lot - Sub Lot Creation Error"
         )
-    
-    return sub_lot
+        return {"status": "failed", "message": str(e)}
 
 # Helper function for stock reconciliation
 def reconcile_stock(item_code, warehouse, batch_no, qty, valuation_rate=None):
