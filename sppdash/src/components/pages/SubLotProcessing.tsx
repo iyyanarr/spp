@@ -883,18 +883,16 @@ const SubLotProcessing: React.FC = () => {
   };
 
   const handleSave = async (): Promise<FormattedData | undefined> => {
-    console.log("Saving data...");
+    // Calculate total rejected quantity
+    const totalRejectionQty = rejectionDetails.reduce((sum, item) => {
+      return sum + parseFloat(item.qty || "0");
+    }, 0);
     
-    // Validate employee barcode is present and in correct format
-    const empBarcodeValidation = validateEmployeeBarcode(employeeBarcode);
-    if (!empBarcodeValidation.isValid) {
-      setScanError(empBarcodeValidation.message);
-      return;
-    }
+    // Calculate accepted quantity
+    const acceptedQty = Math.max(0, parseFloat(inspectionQty) - totalRejectionQty);
     
-    // Format data by sections
+    // Create a formatted data object with all the necessary information
     const formattedData: FormattedData = {
-      // Batch Information Section
       batchInfo: {
         sppBatchId: batchId,
         itemCode: itemCode,
@@ -902,46 +900,30 @@ const SubLotProcessing: React.FC = () => {
         batchNo: batchNo,
         availableQuantity: quantity
       },
-      
-      // Operation Details Section
       operationDetails: operationDetails.map(op => ({
         operation: op.operationId,
         employeeCode: op.employeeCode,
         employeeName: op.employeeName
       })),
-      
-      // Inspection Section
       inspectionInfo: {
         inspectionQuantity: inspectionQty,
         inspectorCode: scannedEmployee?.code || employeeBarcode,
         inspectorName: scannedEmployee?.name || ""
       },
-      
-      // Rejection Details Section
       rejectionDetails: rejectionDetails
-        .filter(r => parseFloat(r.qty) > 0) // Only include rejections with qty > 0
-        .map(r => ({
-          rejectionType: r.type,
-          quantity: r.qty
-        }))
-    };
-    
-    // Calculate total rejected quantity
-    const totalRejectionQty = rejectionDetails.reduce((sum, item) => {
-      return sum + (parseFloat(item.qty) || 0);
-    }, 0);
-    
-    // Calculate accepted quantity
-    const acceptedQty = Math.max(0, parseFloat(inspectionQty) - totalRejectionQty);
-    
-    // Add summary calculations
-    formattedData.summary = {
-      totalInspected: inspectionQty,
-      totalRejected: totalRejectionQty.toString(),
-      acceptedQuantity: acceptedQty.toString(),
-      rejectionPercentage: inspectionQty ? 
-        ((totalRejectionQty / parseFloat(inspectionQty)) * 100).toFixed(2) + "%" : 
-        "0%"
+        .filter(item => parseFloat(item.qty) > 0)
+        .map(item => ({
+          rejectionType: item.type,
+          quantity: item.qty
+        })),
+      summary: {
+        totalInspected: inspectionQty,
+        totalRejected: totalRejectionQty.toString(),
+        acceptedQuantity: acceptedQty.toString(),
+        rejectionPercentage: inspectionQty ? 
+          ((totalRejectionQty / parseFloat(inspectionQty)) * 100).toFixed(2) + "%" : 
+          "0%"
+      }
     };
     
     // Log nicely formatted data to console
@@ -961,100 +943,59 @@ const SubLotProcessing: React.FC = () => {
     
     // Reset loading states before starting
     setIsLoading(true);
-    setValidatingLot(true);
-    setSavingEntries(false);
-    setCreatingInspection(false);
-    setSaveProgress(0);
-    setProcessingStatus("Validating lot number...");
+    setProcessingStatus("Processing lot data...");
     setScanError("");
     
     try {
-      console.log("Validating lot number:", formattedData.batchInfo.sppBatchId);
-      console.log('csrfToken',csrfToken)
+      // Get CSRF token for the request
+      const csrfToken = (window as any).csrf_token;
       
-      const validationResponse = await fetch("/api/method/shree_polymer_custom_app.shree_polymer_custom_app.doctype.lot_resource_tagging.lot_resource_tagging.validate_lot_number", {
+      // Call the new process_lot API endpoint with all the formatted data
+      const response = await fetch("/api/method/spp.api.process_lot", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
           "X-Frappe-CSRF-Token": csrfToken || "",
-
         },
         body: JSON.stringify({
-          barcode: formattedData.batchInfo.sppBatchId
+          data: formattedData
         }),
       });
       
-      const validationResult = await validationResponse.json();
-      console.log("Lot validation result:", validationResult);
+      const result = await response.json();
       
-      // Check if validation was successful
-      if (validationResult.message && validationResult.message.status === "failed") {
-        setValidatingLot(false);
-        setScanError(`Lot validation failed: ${validationResult.message.message || "Unknown error"}`);
-        setIsLoading(false);
-        setProcessingStatus("");
-        return;
-      }
+      console.log("Process lot result:", result);
       
-      // Update status after successful validation
-      setValidatingLot(false);
-      setSavingEntries(true);
-      setProcessingStatus("Creating lot resource tagging entries...");
-      
-      // Extract BOM operations data from validation result
-      let bomOperations: string[] = [];
-      if (validationResult.message && 
-          validationResult.message.bom_operations && 
-          Array.isArray(validationResult.message.bom_operations)) {
-        bomOperations = validationResult.message.bom_operations.map((op: { operation: string }) => op.operation);
-      }
-      
-      // First step: If validation passes, proceed with saving Lot Resource Tagging entries
-      const results = await handleSaveToERPNext(formattedData, bomOperations, validationResult.message);
-      
-      // Second step: If Lot Resource Tagging was successful, create Inspection Entry
-      if (results.length > 0 && results.every(r => r.success)) {
-        setSavingEntries(false);
-        setCreatingInspection(true);
-        setProcessingStatus("Creating inspection entry...");
+      // Handle response
+      if (result.message && result.message.success) {
+        // Show success message with details
+        setProcessingStatus("Successfully processed lot data!");
         
-        const inspectionResult = await handleCreateInspectionEntry(formattedData, validationResult.message);
+        // Display summary information to user
+        showSuccessMessage(
+          "Lot Processing Completed",
+          `Created ${result.message.sub_lots_created || 0} sub lots, 
+           ${result.message.operations_created || 0} operation entries, and 
+           ${result.message.inspections_created || 0} inspection records.`
+        );
         
-        setCreatingInspection(false);
-        setIsLoading(false);
-        
-        if (inspectionResult.success) {
-          // Success message for both operations
-          setProcessingStatus("All entries created successfully!");
-          setShowSuccessNotification(true);
-          
-          // Auto-hide the success message after 3 seconds
-          setTimeout(() => {
-            setProcessingStatus("");
-            setShowSuccessNotification(false);
-          }, 3000);
-        } else {
-          // Handle inspection entry creation failure
-          setScanError(`Failed to create inspection entry: ${inspectionResult.error}`);
-        }
+        // Reset form after successful save
+        resetForm();
       } else {
-        // Handle lot resource tagging failure
-        setSavingEntries(false);
-        setIsLoading(false);
+        // Handle error response
+        const errorMessage = result.message?.error || "Unknown error occurred";
+        setScanError(`Error processing lot: ${errorMessage}`);
         setProcessingStatus("");
       }
       
       return formattedData;
     } catch (error) {
-      console.error("Error validating lot number:", error);
-      setScanError(`Error validating lot: ${error instanceof Error ? error.message : "Unknown error"}`);
-      setValidatingLot(false);
-      setSavingEntries(false);
-      setCreatingInspection(false);
-      setIsLoading(false);
+      console.error("Error processing lot:", error);
+      setScanError(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
       setProcessingStatus("");
-      return undefined;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1579,3 +1520,11 @@ const SubLotProcessing: React.FC = () => {
 };
 
 export default SubLotProcessing;
+
+function showSuccessMessage(arg0: string, arg1: string) {
+  throw new Error("Function not implemented.");
+}
+function resetForm() {
+  throw new Error("Function not implemented.");
+}
+

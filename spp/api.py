@@ -240,3 +240,439 @@ def create_lot_resource_tagging():
         print("Error creating Lot Resource Tagging:", error_traceback)
         frappe.log_error(message=error_traceback, title="LRT API Error")
         return {"success": False, "error": str(e)}
+
+
+# sublot Processing 
+
+@frappe.whitelist()
+def process_lot(data):
+    """
+    Process lot data from the frontend, creating all necessary records
+    
+    Args:
+        data (dict): Formatted data from the frontend containing:
+            - batchInfo: Batch identification data
+            - operationDetails: List of operations performed
+            - inspectionInfo: Inspection data
+            - rejectionDetails: List of rejection details
+            - summary: Processing summary statistics
+    
+    Returns:
+        dict: Result of the processing
+    """
+    try:
+        # Log received data
+        frappe.log_error(message=f"Received data: {data}", title="Process Lot")
+        
+        # Parse data if it's a string
+        if isinstance(data, str):
+            data = frappe.parse_json(data)
+        
+        # Extract data sections
+        batch_info = data.get("batchInfo", {})
+        operation_details = data.get("operationDetails", [])
+        inspection_info = data.get("inspectionInfo", {})
+        rejection_details = data.get("rejectionDetails", [])
+        summary = data.get("summary", {})
+        
+        # Validate the lot number first
+        from shree_polymer_custom_app.shree_polymer_custom_app.doctype.lot_resource_tagging.lot_resource_tagging import validate_lot_number
+        lot_validation = validate_lot_number(batch_info.get("sppBatchId"))
+        
+        if isinstance(lot_validation, dict) and lot_validation.get('status') == 'failed':
+            return {"success": False, "error": lot_validation.get('message', 'Lot validation failed')}
+        
+        # Initialize counters for created documents
+        sub_lots_created = 0
+        operations_created = 0
+        inspections_created = 0
+        
+        # 1. First step: Create Sub Lot Creation document or use original lot
+        try:
+            sub_lot_result = create_sub_lot_entry(
+                batch_info,
+                inspection_info,
+                lot_validation
+            )
+            
+            # Check if we created a new sub-lot or using the original lot
+            if hasattr(sub_lot_result, 'name') and not isinstance(sub_lot_result, dict):
+                # A new sub-lot document was created
+                sub_lot = sub_lot_result
+                sub_lots_created = 1
+                frappe.log_error(message=f"Sub Lot created: {sub_lot.name}", title="Process Lot - Sub Lot Creation")
+                
+                # Update batch_info with ALL relevant sub-lot values for downstream processing
+                batch_info["sppBatchId"] = sub_lot.sub_lot_no
+                batch_info["batchNo"] = sub_lot.batch_no
+                batch_info["availableQuantity"] = str(sub_lot.qty)  # Use qty from sub_lot
+                batch_info["warehouse"] = sub_lot.warehouse
+                
+                # Log the updated batch info
+                frappe.log_error(
+                    message=f"Updated batch info with sub-lot values: {batch_info}", 
+                    title="Process Lot - Batch Info Update"
+                )
+            else:
+                # Using original lot, no new document created
+                sub_lot = sub_lot_result
+                # Keep sub_lots_created at 0
+                frappe.log_error(message=f"Using original lot: {sub_lot.get('sub_lot_no')}", title="Process Lot - Using Original Lot")
+                
+                # Ensure sppBatchId is updated
+                batch_info["sppBatchId"] = sub_lot.get("sub_lot_no")
+        
+        except Exception as e:
+            frappe.log_error(
+                message=f"Error processing lot: {str(e)}\n{frappe.get_traceback()}", 
+                title="Process Lot - Sub Lot Error"
+            )
+            return {"success": False, "error": f"Error creating/processing lot: {str(e)}"}
+        
+        # 2. Create Lot Resource Tagging entries for each operation
+        for operation in operation_details:
+            try:
+                lot_resource = create_lot_resource_entry(
+                    batch_info, 
+                    operation,
+                    lot_validation
+                )
+                operations_created += 1
+            except Exception as e:
+                frappe.log_error(
+                    message=f"Error creating resource tagging: {str(e)}\n{frappe.get_traceback()}", 
+                    title="Process Lot - Resource Tagging Error"
+                )
+                return {"success": False, "error": f"Error creating operation entry: {str(e)}"}
+        
+        # 3. Create Inspection Entry if needed
+        if inspection_info.get("inspectionQuantity"):
+            try:
+                inspection = create_inspection_entry(
+                    batch_info,
+                    inspection_info,
+                    rejection_details,
+                    summary,
+                    lot_validation
+                )
+                inspections_created += 1
+            except Exception as e:
+                frappe.log_error(
+                    message=f"Error creating inspection: {str(e)}\n{frappe.get_traceback()}", 
+                    title="Process Lot - Inspection Error"
+                )
+                return {"success": False, "error": f"Error creating inspection entry: {str(e)}"}
+        
+        # Return success response with counts
+        return {
+            "success": True, 
+            "sub_lots_created": sub_lots_created,
+            "operations_created": operations_created,
+            "inspections_created": inspections_created,
+            "message": "Lot processing completed successfully"
+        }
+            
+    except Exception as e:
+        error_traceback = frappe.get_traceback()
+        frappe.log_error(message=error_traceback, title="Process Lot Error")
+        return {"success": False, "error": str(e)}
+
+
+def create_lot_resource_entry(batch_info, operation, validation_data):
+    """Create a Lot Resource Tagging entry using sub-lot information"""
+    
+    # Log the batch info to ensure we're using updated values
+    frappe.log_error(
+        message=f"Creating LRT with batch info: {batch_info}", 
+        title="LRT Batch Info"
+    )
+    
+    doc_data = {
+        "doctype": "Lot Resource Tagging",
+        "scan_lot_no": batch_info.get("sppBatchId"),  # Will be sub_lot_no if created
+        "operator_id": operation.get("employeeCode"),
+        "scan_operator": operation.get("employeeCode"),
+        "operation_type": operation.get("operation"),
+        "operations": validation_data.get("operations", ""),
+        "product_ref": batch_info.get("itemCode"),
+        "bom_no": validation_data.get("bom_no", ""),
+        "batch_no": batch_info.get("batchNo"),  # Updated with sub_lot batch_no
+        "available_qty": batch_info.get("availableQuantity", "0"),  # Updated with sub_lot qty
+        "posting_date": frappe.utils.today(),
+        "qtynos": batch_info.get("availableQuantity", "0"),  # Updated with sub_lot qty
+        "docstatus": 0  # Draft
+    }
+    
+    # Log the document data before creation
+    frappe.log_error(
+        message=f"LRT doc data: {doc_data}", 
+        title="LRT Creation"
+    )
+    
+    doc = frappe.get_doc(doc_data)
+    doc.insert()
+    return doc
+
+
+def create_inspection_entry(batch_info, inspection_info, rejection_details, summary, validation_data):
+    """Create an Inspection Entry with sub-lot values"""
+    
+    # Log the batch info to ensure we're using updated values
+    frappe.log_error(
+        message=f"Creating Inspection with batch info: {batch_info}", 
+        title="Inspection Batch Info"
+    )
+    
+    # Calculate total rejected quantity
+    total_rejected = float(summary.get("totalRejected", 0))
+    total_inspected = float(inspection_info.get("inspectionQuantity", 0))
+    accepted_qty = float(summary.get("acceptedQuantity", 0))
+    
+    # Format items for child table
+    items = []
+    
+    # Add rejection items - using the updated batch_info values
+    for rejection in rejection_details:
+        items.append({
+            "type_of_defect": rejection.get("rejectionType"),
+            "rejected_qty": float(rejection.get("quantity", 0)),
+            "product_ref_no": batch_info.get("itemCode"),
+            "batch_no": batch_info.get("batchNo"),  # Updated with sub_lot batch_no
+            "lot_no": batch_info.get("sppBatchId"),  # Updated with sub_lot_no
+            "inspector_code": inspection_info.get("inspectorCode"),
+            "inspector_name": inspection_info.get("inspectorName")
+        })
+    
+    # Add accepted item if any - using the updated batch_info values
+    if accepted_qty > 0:
+        items.append({
+            "type_of_defect": "ACCEPTED",
+            "rejected_qty": accepted_qty,
+            "product_ref_no": batch_info.get("itemCode"),
+            "batch_no": batch_info.get("batchNo"),  # Updated with sub_lot batch_no
+            "lot_no": batch_info.get("sppBatchId"),  # Updated with sub_lot_no
+            "inspector_code": inspection_info.get("inspectorCode"),
+            "inspector_name": inspection_info.get("inspectorName")
+        })
+    
+    # Create inspection document - using the updated batch_info values
+    doc_data = {
+        "doctype": "Inspection Entry",
+        "inspection_type": "Final Visual Inspection",
+        "posting_date": frappe.utils.today(),
+        "lot_no": batch_info.get("sppBatchId"),  # Updated with sub_lot_no
+        "scan_production_lot": batch_info.get("sppBatchId"),  # Updated with sub_lot_no
+        "product_ref_no": batch_info.get("itemCode"),
+        "spp_batch_number": batch_info.get("sppBatchId"),  # Updated with sub_lot_no
+        "batch_no": batch_info.get("batchNo"),  # Updated with sub_lot batch_no
+        "inspector_name": inspection_info.get("inspectorName"),
+        "inspector_code": inspection_info.get("inspectorCode"),
+        "scan_inspector": inspection_info.get("inspectorCode"),
+        "source_warehouse": batch_info.get("warehouse"),  # This should be updated too
+        "vs_pdir_qty": float(batch_info.get("availableQuantity", 0)),  # Updated with sub_lot qty
+        "total_inspected_qty_nos": total_inspected,
+        "total_rejected_qty": total_rejected,
+        "vs_pdir_qty_after_rejection": accepted_qty,
+        "items": items
+    }
+    
+    # Log the document data before creation
+    frappe.log_error(
+        message=f"Inspection doc data: {doc_data}", 
+        title="Inspection Creation"
+    )
+    
+    doc = frappe.get_doc(doc_data)
+    doc.insert()
+    return doc
+
+def create_sub_lot_entry(batch_info, inspection_info, validation_data):
+    """
+    Create a Sub Lot Creation entry based on quantity comparison:
+    - If inspection qty < available qty: Create sub-lot with -1 suffix
+    - If inspection qty == available qty: Don't create sub-lot, use original lot
+    - If inspection qty > available qty: Do stock reconciliation, then continue
+    """
+    
+    original_lot_no = batch_info.get("sppBatchId")
+    posting_date = frappe.utils.today()
+    
+    # Extract and convert quantities to float for comparison
+    available_qty = float(batch_info.get("availableQuantity", "0"))
+    inspection_qty = float(inspection_info.get("inspectionQuantity", "0"))
+    
+    # Initialize sub_lot to None (in case we don't create one)
+    sub_lot = None
+    sub_lots_created = 0
+    
+    # CASE 1: If inspection quantity equals available quantity, don't create sub-lot
+    if abs(inspection_qty - available_qty) < 0.001:  # Use small epsilon for float comparison
+        frappe.log_error(
+            message=f"Inspection qty ({inspection_qty}) equals available qty ({available_qty}). Using original lot.",
+            title="Process Lot - Using Original Lot"
+        )
+        # Just return basic information without creating a new document
+        return {
+            "name": original_lot_no,
+            "sub_lot_no": original_lot_no,  # Same as original
+            "is_original": True
+        }
+    
+    # CASE 2: If inspection quantity > available quantity, perform stock reconciliation
+    elif inspection_qty > available_qty:
+        frappe.log_error(
+            message=f"Inspection qty ({inspection_qty}) > available qty ({available_qty}). Performing stock reconciliation.",
+            title="Process Lot - Stock Reconciliation"
+        )
+        
+        # Perform stock reconciliation for the warehouse and item
+        try:
+            reconcile_stock(
+                item_code=batch_info.get("itemCode"),
+                warehouse=batch_info.get("warehouse"),
+                batch_no=batch_info.get("batchNo"),
+                qty=inspection_qty,
+                valuation_rate=None  # Use existing valuation rate
+            )
+            
+            # Update available quantity to match inspection quantity after reconciliation
+            available_qty = inspection_qty
+            batch_info["availableQuantity"] = str(inspection_qty)
+            
+            frappe.log_error(
+                message=f"Stock reconciled. New available qty: {inspection_qty}",
+                title="Process Lot - Stock Reconciliation Complete"
+            )
+        except Exception as e:
+            frappe.log_error(
+                message=f"Error during stock reconciliation: {str(e)}\n{frappe.get_traceback()}",
+                title="Process Lot - Stock Reconciliation Failed"
+            )
+            raise e
+    
+    # CASE 3: Inspection quantity < available quantity, create sub-lot
+    if inspection_qty < available_qty:
+        # Generate sub lot number by adding -1 to the original lot number
+        sub_lot_no = f"{original_lot_no}-1"
+        
+        # Generate barcode image
+        barcode_path = generate_barcode_for_sublot(sub_lot_no)
+        
+        # Create document data
+        doc_data = {
+            "doctype": "Sub Lot Creation",
+            "scan_lot_no": original_lot_no,
+            "sub_lot_no": sub_lot_no,
+            "item_code": batch_info.get("itemCode"),
+            "batch_no": batch_info.get("batchNo"),
+            "posting_date": posting_date,
+            "available_qty": available_qty,
+            "warehouse": batch_info.get("warehouse"),
+            "qty": inspection_qty,
+            "available_qty_kgs": 0,  # Default to 0 as per example
+            "stock_entry_reference": validation_data.get("name", ""),
+            "uom": "Nos",  # Default to Nos - adjust if needed
+            "despatch_u1_parent": original_lot_no,
+            "barcode_attach": barcode_path,
+            "lrt_found": 0,
+            "docstatus": 1  # Submit the document
+        }
+        
+        # Create and insert the document
+        doc = frappe.get_doc(doc_data)
+        doc.insert()
+        
+        # Submit the document
+        doc.submit()
+        
+        sub_lot = doc
+        sub_lots_created = 1
+        
+        frappe.log_error(
+            message=f"Created sub lot {sub_lot_no} with qty {inspection_qty} from original lot {original_lot_no} with qty {available_qty}",
+            title="Process Lot - Sub Lot Creation"
+        )
+    
+    return sub_lot
+
+# Helper function for stock reconciliation
+def reconcile_stock(item_code, warehouse, batch_no, qty, valuation_rate=None):
+    """
+    Create a Stock Reconciliation to adjust quantity
+    """
+    # Get current valuation rate if not provided
+    if valuation_rate is None:
+        # Query to get current valuation rate
+        current_rate = frappe.db.sql("""
+            SELECT valuation_rate 
+            FROM `tabBatch` 
+            WHERE name = %s
+        """, (batch_no,), as_dict=True)
+        
+        if current_rate and current_rate[0].valuation_rate:
+            valuation_rate = current_rate[0].valuation_rate
+        else:
+            # Fallback to item valuation rate
+            valuation_rate = frappe.db.get_value("Item", item_code, "valuation_rate") or 1.0
+    
+    # Create Stock Reconciliation
+    stock_recon = frappe.get_doc({
+        "doctype": "Stock Reconciliation",
+        "purpose": "Stock Reconciliation",
+        "items": [{
+            "item_code": item_code,
+            "warehouse": warehouse,
+            "batch_no": batch_no,
+            "qty": qty,
+            "valuation_rate": valuation_rate
+        }]
+    })
+    
+    stock_recon.insert()
+    stock_recon.submit()
+    
+    frappe.db.commit()
+    
+    return stock_recon
+
+def generate_barcode_for_sublot(sub_lot_no):
+    """Generate a barcode image for the sub lot number and return the file path"""
+    try:
+        import io
+        import os
+        from PIL import Image
+        import barcode
+        from barcode.writer import ImageWriter
+        
+        # Create the barcode (Code128 is a common format)
+        code128 = barcode.get('code128', sub_lot_no, writer=ImageWriter())
+        
+        # Create a buffer to hold the image
+        buffer = io.BytesIO()
+        code128.write(buffer)
+        
+        # Create a PIL Image from the buffer
+        buffer.seek(0)
+        image = Image.open(buffer)
+        
+        # Save the image to a BytesIO object for uploading
+        output_buffer = io.BytesIO()
+        image.save(output_buffer, format='PNG')
+        output_buffer.seek(0)
+        
+        # Upload the image to Frappe
+        filename = f"{sub_lot_no}.png"
+        file_url = frappe.utils.file_manager.save_file(
+            filename,
+            output_buffer.getvalue(),
+            "Sub Lot Creation",
+            sub_lot_no,
+            is_private=0
+        ).file_url
+        
+        return file_url
+    except Exception as e:
+        frappe.log_error(message=f"Error generating barcode: {str(e)}", title="Barcode Generation Error")
+        # Return a placeholder if barcode generation fails
+        return ""
+
