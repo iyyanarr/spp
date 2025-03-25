@@ -436,6 +436,121 @@ def _create_resource_tags_for_operations(operation, sub_lot_no, operator_id):
         )
         return {"status": "failed", "message": str(e)}
 
+@frappe.whitelist()
+def handle_create_inspection_entry(form_data, validation_data=None):
+    """
+    Create an Inspection Entry document based on the provided form data and validation data.
+
+    Args:
+        form_data (dict): Data from the frontend form.
+        validation_data (dict, optional): Pre-validated data if available.
+
+    Returns:
+        dict: Result of the operation with success status and document name or error message.
+    """
+    try:
+        # Parse input data
+        if isinstance(form_data, str):
+            form_data = frappe.parse_json(form_data)
+        if validation_data is None:
+            validation_data = {}
+
+        # Calculate total rejected quantity
+        rejection_details = form_data.get("rejectionDetails", [])
+        total_rejection_qty = sum(
+            float(r.get("quantity", 0)) for r in rejection_details if float(r.get("quantity", 0)) > 0
+        )
+
+        # Calculate accepted quantity
+        inspection_qty = float(form_data.get("inspectionInfo", {}).get("inspectionQuantity", 0))
+        accepted_qty = max(0, inspection_qty - total_rejection_qty)
+
+        # Format rejection items for child table
+        items = [
+            {
+                "type_of_defect": r.get("rejectionType"),
+                "rejected_qty": int(float(r.get("quantity", 0))),
+                "product_ref_no": validation_data.get("item_code", form_data.get("batchInfo", {}).get("itemCode")),
+                "batch_no": validation_data.get("batch_no", form_data.get("batchInfo", {}).get("batchNo")),
+                "lot_no": form_data.get("batchInfo", {}).get("sppBatchId"),
+                "inspector_code": form_data.get("inspectionInfo", {}).get("inspectorCode"),
+                "inspector_name": form_data.get("inspectionInfo", {}).get("inspectorName"),
+                "operator_name": "",
+                "rejected_qty_kg": 0,
+                "machine_no": ""
+            }
+            for r in rejection_details if float(r.get("quantity", 0)) > 0
+        ]
+
+        # Add a row for accepted quantity if applicable
+        if accepted_qty > 0:
+            items.append({
+                "type_of_defect": "ACCEPTED",
+                "rejected_qty": int(accepted_qty),
+                "product_ref_no": validation_data.get("item_code", form_data.get("batchInfo", {}).get("itemCode")),
+                "batch_no": validation_data.get("batch_no", form_data.get("batchInfo", {}).get("batchNo")),
+                "lot_no": form_data.get("batchInfo", {}).get("sppBatchId"),
+                "inspector_code": form_data.get("inspectionInfo", {}).get("inspectorCode"),
+                "inspector_name": form_data.get("inspectionInfo", {}).get("inspectorName"),
+                "operator_name": "",
+                "rejected_qty_kg": 0,
+                "machine_no": ""
+            })
+
+        # Create the Inspection Entry document
+        doc = frappe.get_doc({
+            "doctype": "Inspection Entry",
+            "inspection_type": "Final Visual Inspection",
+            "posting_date": frappe.utils.nowdate(),
+
+            # Lot information
+            "lot_no": form_data.get("batchInfo", {}).get("sppBatchId"),
+            "scan_production_lot": form_data.get("batchInfo", {}).get("sppBatchId"),
+            "product_ref_no": validation_data.get("item_code", form_data.get("batchInfo", {}).get("itemCode")),
+            "spp_batch_number": validation_data.get("spp_batch_number", form_data.get("batchInfo", {}).get("sppBatchId")),
+            "batch_no": validation_data.get("batch_no", form_data.get("batchInfo", {}).get("batchNo")),
+
+            # Inspector information
+            "inspector_name": form_data.get("inspectionInfo", {}).get("inspectorName"),
+            "inspector_code": form_data.get("inspectionInfo", {}).get("inspectorCode"),
+            "scan_inspector": form_data.get("inspectionInfo", {}).get("inspectorCode"),
+
+            # Warehouse information
+            "source_warehouse": validation_data.get("from_warehouse", form_data.get("batchInfo", {}).get("warehouse")),
+
+            # Quantity information
+            "vs_pdir_qty": float(validation_data.get("qty_from_item_batch", form_data.get("batchInfo", {}).get("availableQuantity", 0))),
+            "total_inspected_qty_nos": inspection_qty,
+            "total_rejected_qty": total_rejection_qty,
+            "vs_pdir_qty_after_rejection": accepted_qty,
+
+            # Rejection details child table
+            "items": items
+        })
+
+        # Insert and save the document
+        doc.insert()
+        doc.submit()
+
+        frappe.log_error(
+            message=f"Created inspection entry: {doc.name} for lot {form_data.get('batchInfo', {}).get('sppBatchId')}",
+            title="Inspection Entry - Created"
+        )
+
+        # Return success response
+        return {
+            "success": True,
+            "name": doc.name
+        }
+
+    except Exception as e:
+        frappe.log_error(message=f"Error creating Inspection Entry: {str(e)}\n{frappe.get_traceback()}", 
+                        title="Inspection Entry - Error")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 
 
 
