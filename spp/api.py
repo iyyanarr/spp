@@ -5,7 +5,7 @@ from frappe.utils.nestedset import get_descendants_of
 @frappe.whitelist()
 def process_lot(data):
     """
-    Process lot data from the frontend, creating only the sub lot
+    Process lot data from the frontend, creating sub lot, resource tags, and inspection entries
     """
     try:
         # Parse and extract data 
@@ -15,12 +15,18 @@ def process_lot(data):
         batch_info = data.get("batchInfo", {})
         inspection_info = data.get("inspectionInfo", {})
         operations = data.get("operationDetails")
+        rejection_details = data.get("rejectionDetails", [])
         
-        # Initialize counters
-        sub_lots_created = 0
+        # Initialize response data
+        response_data = {
+            "success": True,
+            "sub_lots_created": 0,
+            "resource_tags": [],
+            "inspection_entry": None
+        }
         
         # Log received data
-        frappe.log_error(message=f"Processing lot (simplified): {batch_info.get('sppBatchId')}", 
+        frappe.log_error(message=f"Processing lot: {batch_info.get('sppBatchId')}", 
                         title="Process Lot - Start")
         
         # STEP 1: Validate the lot number first
@@ -29,86 +35,87 @@ def process_lot(data):
         # Basic validation first
         lot_validation = validate_lot_number(batch_info.get("sppBatchId"))
         
-        # STEP 2: Create Sub Lot (the ONLY operation now)
+        # STEP 2: Create Sub Lot
         try:
             # This creates sub lot based on inspection quantity vs available quantity
-            sub_lot_result = create_sub_lot_entry(batch_info, inspection_info),
+            sub_lot_result = create_sub_lot_entry(batch_info, inspection_info)  # Remove the trailing comma!
             
             # Determine if we created a new sub-lot or using original lot
             if hasattr(sub_lot_result, 'name') and hasattr(sub_lot_result, 'sub_lot_no'):
                 # A new sub-lot document was created
                 sub_lot = sub_lot_result
-                sub_lots_created = 1
-                
-                frappe.log_error(message=f"Created new sub-lot: {sub_lot.sub_lot_no} {lot_validation}", 
-                                title="Process Lot - Sub Lot Created")
-                
-                # Return success with sub-lot info
-                return {
-                    "success": True, 
-                    "sub_lots_created": sub_lots_created,
+                response_data.update({
+                    "sub_lots_created": 1,
                     "sub_lot_no": sub_lot.sub_lot_no,
                     "batch_no": sub_lot.batch_no,
                     "qty": sub_lot.qty,
                     "qty_kgs": sub_lot.available_qty_kgs,
                     "message": f"Sub lot {sub_lot.sub_lot_no} created successfully"
-                }
+                })
+                
+                # For operations & inspection, use the new sub-lot number
+                lot_no_for_operations = sub_lot.sub_lot_no
                 
             elif isinstance(sub_lot_result, dict) and sub_lot_result.get("sub_lot_no"):
                 # Using original lot, no new document created
-                frappe.log_error(message=f"Using original lot: {sub_lot_result.get('sub_lot_no')}", 
-                                title="Process Lot - Using Original Lot")
-                
-                # Return success with original lot info
-                sub_data = {
-                    "success": True, 
-                    "sub_lots_created": 0,
+                response_data.update({
                     "sub_lot_no": sub_lot_result.get("sub_lot_no"),
                     "batch_no": sub_lot_result.get("batch_no"),
                     "qty": sub_lot_result.get("qty"),
                     "qty_kgs": sub_lot_result.get("qty_kgs", 0),
                     "message": "Used original lot (no sub-lot created)"
-                }
-                return sub_data
+                })
+                
+                # For operations & inspection, use the original lot number
+                lot_no_for_operations = sub_lot_result.get("sub_lot_no")
                 
             else:
-                # Unexpected result type, log and return what we can
-                frappe.log_error(message=f"Unexpected sub_lot_result: {sub_lot_result}", 
-                                title="Process Lot - Unexpected Result")
-                
-                # Log operations if available
-                # Try to log the sub_lot_result details
+                # Handle tuple or other unexpected result types
                 if isinstance(sub_lot_result, tuple) and len(sub_lot_result) > 0:
                     sub_lot_result = sub_lot_result[0]  # Extract from tuple if needed
                 
-                # Log what type of result we received
-                frappe.log_error(message=f"Sub lot result type: {type(sub_lot_result).__name__}", 
-                                title="Process Lot - Result Type")
+                # For operations & inspection, use the original batch ID
+                lot_no_for_operations = batch_info.get("sppBatchId")
                 
-                # Try to get Sub Lot Creation document
+                # Add sub_lot result to response
+                response_data["sublot"] = sub_lot_result
+            
+            # STEP 3: Create resource tags for operations (always do this)
+            resource_tags_created = []
+            if operations:
+                for idx, op in enumerate(operations):
+                    tag_result = _create_resource_tags_for_operations(op, lot_no_for_operations, op.get('employeeCode'))
+                    resource_tags_created.append(tag_result)
+                    frappe.log_error(message=f"Operation {idx+1}: {op}", 
+                                    title="Process Lot - Operation Details")
+            
+            response_data["resource_tags"] = resource_tags_created
+            
+            # STEP 4: Create inspection entry if rejection details exist
+            if rejection_details:
                 try:
-                    if isinstance(sub_lot_result, str):
-                        sub_lot_doc = frappe.get_doc("Sub Lot Creation", sub_lot_result)
-                        frappe.log_error(message=f"Retrieved Sub Lot doc by name: {sub_lot_doc}", 
-                                        title="Process Lot - Sub Lot Doc")
-                    elif isinstance(sub_lot_result, dict) and sub_lot_result.get('name'):
-                        sub_lot_doc = frappe.get_doc("Sub Lot Creation", sub_lot_result.get('name'))
-                        frappe.log_error(message=f"Retrieved Sub Lot doc from dict: {sub_lot_doc.name}", 
-                                        title="Process Lot - Sub Lot Doc")
-                except Exception as doc_error:
-                    frappe.log_error(message=f"Error retrieving Sub Lot doc: {str(doc_error)}", 
-                                    title="Process Lot - Doc Retrieval Error")
-                if operations:
-                    for idx, op in enumerate(operations):
-                        _create_resource_tags_for_operations(op['operation'],batch_info.get("sppBatchId"),op['employeeCode'])
-                        frappe.log_error(message=f"Operation {idx+1}: {op['operation']}", 
-                                        title="Process Lot - Operation Details")
-                
-                return {"success": True, "sublot": sub_lot_result}
+                    # Get lot data for validation
+                    lot_data = _get_lot_validation_data(lot_no_for_operations)
+                    
+                    # Create inspection entry
+                    inspection_result = handle_create_inspection_entry(data, lot_data)
+                    
+                    frappe.log_error(message=f"Inspection entry result: {inspection_result}", 
+                                    title="Process Lot - Inspection Entry")
+                    
+                    response_data["inspection_entry"] = inspection_result
+                    
+                except Exception as insp_error:
+                    frappe.log_error(message=f"Error creating inspection entry: {str(insp_error)}", 
+                                    title="Process Lot - Inspection Error")
+                    response_data["inspection_error"] = str(insp_error)
+            
+            # Return the complete response with all operations
+            return response_data
                 
         except Exception as e:
             frappe.log_error(
-                message=f"Error creating sub lot: {str(e)}\n{frappe.get_traceback()}", 
+                message=f"Error in sub-lot processing: {str(e)}\n{frappe.get_traceback()}", 
                 title="Process Lot - Sub Lot Error"
             )
             return {"success": False, "error": f"Error creating sub lot: {str(e)}"}
