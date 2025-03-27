@@ -968,23 +968,41 @@ const SubLotProcessing: React.FC = () => {
       console.log("Process lot result:", result);
       
       // Handle response
-      if (result.message && result.message.success) {
+      if (result.message && result.message.status === "success") {
         // Show success message with details
         setProcessingStatus("Successfully processed lot data!");
         
-        // Display summary information to user
-        showSuccessMessage(
-          "Lot Processing Completed",
-          `Created ${result.message.sub_lots_created || 0} sub lots, 
-           ${result.message.operations_created || 0} operation entries, and 
-           ${result.message.inspections_created || 0} inspection records.`
-        );
+        // Count operations created
+        const operationsCreated = result.message.operations?.length || 0;
         
-        // Reset form after successful save
-        resetForm();
+        // Display summary information to user
+        setShowSuccessNotification(true);
+        setTimeout(() => setShowSuccessNotification(false), 5000);
+        
+        // Show the actual success data in a more readable way
+        console.log("Success: Lot processed with result:", {
+          "Sub Lot": result.message.sub_lot?.sub_lot_no,
+          "Operations Created": operationsCreated
+        });
+        
+        // Reset form
+        setBatchId("");
+        setItemCode("");
+        setWarehouse("");
+        setBatchNo("");
+        setQuantity("");
+        setEmployeeId("");
+        setEmployeeBarcode("");
+        setInspectionQty("");
+        setScannedEmployee(null);
+        setOperationDetails([]);
+        // Reset rejection details to default values
+        setRejectionDetails(prevState => 
+          prevState.map(item => ({ ...item, qty: "0" }))
+        );
       } else {
         // Handle error response
-        const errorMessage = result.message?.error || "Unknown error occurred";
+        const errorMessage = result.message?.message || "Unknown error occurred";
         setScanError(`Error processing lot: ${errorMessage}`);
         setProcessingStatus("");
       }
