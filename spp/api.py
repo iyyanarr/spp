@@ -324,79 +324,77 @@ def _get_lot_res_validation_data(lot_no):
 
 def _create_resource_tags_for_operations(operation, sub_lot_no, operator_id,validation_result):
 
-    return{operation, sub_lot_no, operator_id,validation_result}
+    try:
+        # Log the incoming arguments
+        frappe.log_error(
+            message=f"Creating resource tag - Operation: {operation}, Sub Lot: {sub_lot_no}, Operator: {operator_id},Validation:{validation_result}",
+            title="Resource Tag - Arguments"
+        )
+        from shree_polymer_custom_app.shree_polymer_custom_app.doctype.lot_resource_tagging.lot_resource_tagging import check_return_workstation
 
-    # try:
-    #     # Log the incoming arguments
-    #     frappe.log_error(
-    #         message=f"Creating resource tag - Operation: {operation}, Sub Lot: {sub_lot_no}, Operator: {operator_id},Validation:{validation_result}",
-    #         title="Resource Tag - Arguments"
-    #     )
-    #     from shree_polymer_custom_app.shree_polymer_custom_app.doctype.lot_resource_tagging.lot_resource_tagging import check_return_workstation
+        workstation = check_return_workstation(operation)
+        
+        # Extract the message from the validation result
+        lot_data = validation_result
+        
+        # Create the Lot Resource Tagging document
+        lot_rt = frappe.new_doc("Lot Resource Tagging")
+        # Check if sub_lot_no has a dash and extract the suffix
+        suffix = ""
+        if "-" in sub_lot_no:
+            suffix = sub_lot_no.split("-", 1)[1]  # Get everything after the first dash
 
-    #     workstation = check_return_workstation(operation)
+        # Set fields from validation result
+        lot_rt.posting_date = frappe.utils.now()
+        lot_rt.scan_lot_no = sub_lot_no
+        lot_rt.scan_operator = operator_id
+        lot_rt.operator_id = operator_id
+        lot_rt.operation_type = operation
+        lot_rt.job_card = lot_data.get("name")
+        lot_rt.product_ref = lot_data.get("production_item")
+        # Append suffix to batch_no if it exists
+        lot_rt.batch_no = lot_data.get("batch_no") + (f"-{suffix}" if suffix else "")
+        lot_rt.bom_no = lot_data.get("bom_no")
+        lot_rt.warehouse = lot_data.get("from_warehouse")
+        # Set fields from validation result
+        lot_rt.posting_date = frappe.utils.now()
+        lot_rt.scan_lot_no = sub_lot_no
+        lot_rt.scan_operator = operator_id
+        lot_rt.operator_id = operator_id
+        lot_rt.operation_type = operation
+        lot_rt.job_card = lot_data.get("name")
+        lot_rt.product_ref = lot_data.get("production_item")
+        lot_rt.bom_no = lot_data.get("bom_no")
+        lot_rt.warehouse = lot_data.get("from_warehouse")
+        lot_rt.available_qty = lot_data.get("qty_from_item_batch")
+        lot_rt.qtynos = lot_data.get("qty_from_item_batch")
+        lot_rt.spp_batch_no = lot_data.get("spp_batch_number")
+        lot_rt.workstation = workstation
+        # Extract and format operations
+        bom_operations = lot_data.get("bom_operations", [])
+        operations_list = [op.get("operation") for op in bom_operations if "operation" in op]
+        lot_rt.operations = ", ".join(operations_list)  # Comma-separated string
         
-    #     # Extract the message from the validation result
-    #     lot_data = validation_result
+        # Insert the document
+        lot_rt.insert()
         
-    #     # Create the Lot Resource Tagging document
-    #     lot_rt = frappe.new_doc("Lot Resource Tagging")
-    #     # Check if sub_lot_no has a dash and extract the suffix
-    #     suffix = ""
-    #     if "-" in sub_lot_no:
-    #         suffix = sub_lot_no.split("-", 1)[1]  # Get everything after the first dash
-
-    #     # Set fields from validation result
-    #     lot_rt.posting_date = frappe.utils.now()
-    #     lot_rt.scan_lot_no = sub_lot_no
-    #     lot_rt.scan_operator = operator_id
-    #     lot_rt.operator_id = operator_id
-    #     lot_rt.operation_type = operation
-    #     lot_rt.job_card = lot_data.get("name")
-    #     lot_rt.product_ref = lot_data.get("production_item")
-    #     # Append suffix to batch_no if it exists
-    #     lot_rt.batch_no = lot_data.get("batch_no") + (f"-{suffix}" if suffix else "")
-    #     lot_rt.bom_no = lot_data.get("bom_no")
-    #     lot_rt.warehouse = lot_data.get("from_warehouse")
-    #     # Set fields from validation result
-    #     lot_rt.posting_date = frappe.utils.now()
-    #     lot_rt.scan_lot_no = sub_lot_no
-    #     lot_rt.scan_operator = operator_id
-    #     lot_rt.operator_id = operator_id
-    #     lot_rt.operation_type = operation
-    #     lot_rt.job_card = lot_data.get("name")
-    #     lot_rt.product_ref = lot_data.get("production_item")
-    #     lot_rt.bom_no = lot_data.get("bom_no")
-    #     lot_rt.warehouse = lot_data.get("from_warehouse")
-    #     lot_rt.available_qty = lot_data.get("qty_from_item_batch")
-    #     lot_rt.qtynos = lot_data.get("qty_from_item_batch")
-    #     lot_rt.spp_batch_no = lot_data.get("spp_batch_number")
-    #     lot_rt.workstation = workstation
-    #     # Extract and format operations
-    #     bom_operations = lot_data.get("bom_operations", [])
-    #     operations_list = [op.get("operation") for op in bom_operations if "operation" in op]
-    #     lot_rt.operations = ", ".join(operations_list)  # Comma-separated string
+        # Submit the document if needed
+        lot_rt.submit()
         
-    #     # Insert the document
-    #     lot_rt.insert()
+        frappe.log_error(
+            message=f"Created resource tag: {lot_rt.name} for sub lot {sub_lot_no}",
+            title="Resource Tag - Created"
+        )
         
-    #     # Submit the document if needed
-    #     lot_rt.submit()
+        return {
+            "status": "success", 
+            "message": f"Resource tag created for {sub_lot_no}", 
+            "resource_tag": lot_rt.name
+        }
         
-    #     frappe.log_error(
-    #         message=f"Created resource tag: {lot_rt.name} for sub lot {sub_lot_no}",
-    #         title="Resource Tag - Created"
-    #     )
-        
-    #     return {
-    #         "status": "success", 
-    #         "message": f"Resource tag created for {sub_lot_no}", 
-    #         "resource_tag": lot_rt.name
-    #     }
-        
-    # except Exception as e:
-    #     frappe.log_error(
-    #         message=f"Error creating resource tag: {str(e)}\n{frappe.get_traceback()}",
-    #         title="Resource Tag - Error"
-    #     )
-    #     return {"status": "failed", "message": str(e)}
+    except Exception as e:
+        frappe.log_error(
+            message=f"Error creating resource tag: {str(e)}\n{frappe.get_traceback()}",
+            title="Resource Tag - Error"
+        )
+        return {"status": "failed", "message": str(e)}
