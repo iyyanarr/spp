@@ -330,20 +330,25 @@ def _create_resource_tags_for_operations(operation, sub_lot_no, operator_id, val
             title="Resource Tag - Arguments with Types"
         )
         
-        # Debug the validation_result structure
-        frappe.log_error(
-            message=f"Validation result keys: {list(validation_result.keys()) if isinstance(validation_result, dict) else 'Not a dict'}",
-            title="Resource Tag - Validation Result"
-        )
-        
         from shree_polymer_custom_app.shree_polymer_custom_app.doctype.lot_resource_tagging.lot_resource_tagging import check_return_workstation
-        workstation_raw = check_return_workstation(operation)
-        workstation = str(workstation_raw) if workstation_raw is not None else ""
+        workstation_result = check_return_workstation(operation)
+        
+        # Extract workstation from the result which is a dictionary
+        if isinstance(workstation_result, dict):
+            workstation = str(workstation_result.get("message", "")) if workstation_result.get("status") == "success" else ""
+        else:
+            workstation = str(workstation_result) if workstation_result is not None else ""
+        
+        frappe.log_error(f"Workstation resolved to: '{workstation}'", "Resource Tag - Workstation")
         
         # Create the document with safe type conversion
         lot_rt = frappe.new_doc("Lot Resource Tagging")
+         # Check if sub_lot_no has a dash and extract the suffix
+        suffix = ""
+        if "-" in sub_lot_no:
+            suffix = sub_lot_no.split("-", 1)[1]  # Get everything after the first dash
         
-        # Set fields with safe type conversion
+        # Continue with the rest of your code...
         lot_rt.posting_date = frappe.utils.today()
         lot_rt.scan_lot_no = str(sub_lot_no)
         lot_rt.scan_operator = str(operator_id)
@@ -352,7 +357,7 @@ def _create_resource_tags_for_operations(operation, sub_lot_no, operator_id, val
         lot_rt.workstation = workstation
         
         # Get batch_no with safe type conversion
-        batch_no = validation_result.get("batch_no", "")
+        batch_no = validation_result.get("batch_no") + (f"-{suffix}" if suffix else "")
         lot_rt.batch_no = str(batch_no) if batch_no else ""
         
         # Get BOM with safe type conversion
