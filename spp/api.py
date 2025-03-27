@@ -504,11 +504,11 @@ def _create_inspection_entry(sub_lot_no, inspector_id, inspection_qty, validatio
             total_rejected = 0
             if isinstance(rejection_details, list):
                 for rej in rejection_details:
-                    rejected_qty = float(rej.get("qty", 0))
+                    rejected_qty = float(rej.get("quantity", 0))
                     if rejected_qty > 0:
                         # Add rejection item
                         insp.append("items", {
-                            "type_of_defect": rej.get("defectType", ""),
+                            "type_of_defect": rej.get("rejectionType", ""),
                             "rejected_qty": rejected_qty,
                             "rejected_qty_kg": 0
                         })
