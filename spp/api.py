@@ -48,7 +48,7 @@ def process_lot(data):
                         continue
                         
                     # Get validation data for the sub-lot
-                    operation_validation = _get_lot_res_validation_data(sub_lot_no)
+                    operation_validation = _get_lot_res_validation_data(batch_id)
                     
                     # Create resource tagging for each operation
                     result = _create_resource_tags_for_operations(
