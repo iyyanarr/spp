@@ -421,7 +421,7 @@ def _create_resource_tags_for_operations(operation, sub_lot_no, operator_id, val
                         operations_list.append(str(op.get("operation")))
         except:
             pass
-        lot_rt.operations = ", ".join(operations_list)
+        lot_rt.operations = ",".join(operations_list)
         
         # Using ignore flags to bypass validation issues
         lot_rt.flags.ignore_links = True
