@@ -291,9 +291,13 @@ def _get_lot_validation_data(lot_no):
     # Extract the response data
     response_data = frappe.response
     
-   
     # Extract lot data from the response
     lot_data = response_data.get('message', {})
+    
+    # Check if lot_data is a string instead of a dictionary
+    if isinstance(lot_data, str):
+        frappe.log_error(f"lot_data is a string: {lot_data}", "Sub Lot Creation - Data Type Error")
+        return {"status": "success", "qty": 0, "message": lot_data}
     
     # Log the successful data retrieval
     frappe.log_error(f"Retrieved lot data for {lot_no}", "Sub Lot Creation - Data Retrieved")
@@ -378,7 +382,7 @@ def _create_resource_tags_for_operations(operation, sub_lot_no, operator_id, val
         # Get batch_no with safe type conversion
         batch_no_val = validation_result.get("batch_no", "")
         if batch_no_val:
-            lot_rt.batch_no = f"{batch_no_val}{'-' + suffix if suffix else ''}"
+            lot_rt.batch_no = f"{batch_no_val.upper()}{'-' + suffix.upper() if suffix else ''}"
         else:
             lot_rt.batch_no = ""
         
