@@ -38,7 +38,31 @@ def process_lot(data):
                 # Get validation data for operations (only once)
                 operation_validation = _get_lot_res_validation_data(batch_id)
                 
-                # Step 1: Create inspection entry first
+                # Step 1: Create resource tags first
+                operation_results = []
+                
+                for operation_detail in operations:
+                    operation_type = operation_detail.get("operation")
+                    operator_id = operation_detail.get("employeeCode")
+                    
+                    # Validate the operation data
+                    if not operation_type or not operator_id:
+                        frappe.log_error(
+                            f"Missing operation type or operator ID: {operation_detail}",
+                            "Process Operation Error"
+                        )
+                        continue
+                        
+                    # Create resource tagging for this operation
+                    result = _create_resource_tags_for_operations(
+                        operation_type, 
+                        sub_lot_no, 
+                        operator_id,
+                        operation_validation
+                    )
+                    operation_results.append(result)
+                
+                # Step 2: Create inspection entry after resource tagging
                 inspection_result = _create_inspection_entry(
                     sub_lot_no, 
                     inspection_info.get("inspectorCode"),
@@ -47,46 +71,14 @@ def process_lot(data):
                     rejection_details
                 )
                 
-                # Step 2: Only create resource tags if inspection was successful
-                if inspection_result.get("status") == "success":
-                    operation_results = []
-                    
-                    for operation_detail in operations:
-                        operation_type = operation_detail.get("operation")
-                        operator_id = operation_detail.get("employeeCode")
-                        
-                        # Validate the operation data
-                        if not operation_type or not operator_id:
-                            frappe.log_error(
-                                f"Missing operation type or operator ID: {operation_detail}",
-                                "Process Operation Error"
-                            )
-                            continue
-                            
-                        # Create resource tagging for this operation
-                        result = _create_resource_tags_for_operations(
-                            operation_type, 
-                            sub_lot_no, 
-                            operator_id,
-                            operation_validation
-                        )
-                        operation_results.append(result)
-                    
-                    # Return successful response with all results
-                    return {
-                        "status": "success",
-                        "message": f"Lot {batch_id} processed successfully",
-                        "sub_lot": sub_lot_result,
-                        "inspection": inspection_result,
-                        "operations": operation_results
-                    }
-                else:
-                    # Return error if inspection creation failed
-                    return {
-                        "status": "failed",
-                        "message": f"Failed to create inspection entry: {inspection_result.get('message')}",
-                        "sub_lot": sub_lot_result
-                    }
+                # Return successful response with all results
+                return {
+                    "status": "success",
+                    "message": f"Lot {batch_id} processed successfully",
+                    "sub_lot": sub_lot_result,
+                    "operations": operation_results,
+                    "inspection": inspection_result
+                }
             
             # No sub-lot created
             return {
