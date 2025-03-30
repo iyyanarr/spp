@@ -534,4 +534,3 @@ def _create_inspection_entry(sub_lot_no, inspector_id, inspection_qty, validatio
     except Exception as e:
         frappe.log_error(f"Error creating inspection entry: {str(e)}\n{frappe.get_traceback()}", "Inspection Entry - Error")
         return {"status": "failed", "message": str(e)}
-
