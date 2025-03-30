@@ -3,7 +3,7 @@ from frappe.utils.nestedset import get_descendants_of
 
 
 @frappe.whitelist()
-def process_sublot(data):
+def process_lot(data):
     if isinstance(data, str):
         data = frappe.parse_json(data)
     
