@@ -177,7 +177,7 @@ const ErrorNotification: React.FC<{ scanError: string }> = ({ scanError }) => {
 // Add this new component for batch confirmation
 const BatchConfirmationDialog: React.FC<{
   show: boolean;
-  onClose: () => void;
+  onClose: (confirmed: boolean) => void;
   batchInfo: {
     batchId: string;
     itemCode: string;
@@ -192,44 +192,44 @@ const BatchConfirmationDialog: React.FC<{
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
       <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4 animate-scale-in">
         <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-semibold text-slate-800">Batch Information</h3>
+          <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Batch Information</h3>
           <Button 
             variant="ghost" 
             size="sm" 
             className="h-8 w-8 p-0 rounded-full" 
-            onClick={onClose}
+            onClick={() => onClose(false)}
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
         
         <div className="space-y-4">
-          <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+          <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium text-indigo-700">SPP Batch ID:</span>
-              <span className="text-sm font-bold text-indigo-900">{batchInfo.batchId}</span>
+              <span className="text-sm font-medium text-blue-700">SPP Batch ID:</span>
+              <span className="text-sm font-bold text-blue-900">{batchInfo.batchId}</span>
             </div>
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium text-indigo-700">Batch No:</span>
-              <span className="text-sm font-bold text-indigo-900">{batchInfo.batchNo}</span>
+              <span className="text-sm font-medium text-blue-700">Batch No:</span>
+              <span className="text-sm font-bold text-blue-900">{batchInfo.batchNo}</span>
             </div>
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium text-indigo-700">Item Code:</span>
-              <span className="text-sm font-bold text-indigo-900">{batchInfo.itemCode}</span>
+              <span className="text-sm font-medium text-blue-700">Item Code:</span>
+              <span className="text-sm font-bold text-blue-900">{batchInfo.itemCode}</span>
             </div>
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium text-indigo-700">Warehouse:</span>
-              <span className="text-sm font-bold text-indigo-900">{batchInfo.warehouse}</span>
+              <span className="text-sm font-medium text-blue-700">Warehouse:</span>
+              <span className="text-sm font-bold text-blue-900">{batchInfo.warehouse}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm font-medium text-indigo-700">Available Qty:</span>
-              <span className="text-sm font-bold text-indigo-900">{batchInfo.quantity}</span>
+              <span className="text-sm font-medium text-blue-700">Available Qty:</span>
+              <span className="text-sm font-bold text-blue-900">{batchInfo.quantity}</span>
             </div>
           </div>
           
           <Button 
-            className="w-full bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600 text-white py-2 rounded-xl"
-            onClick={onClose}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl"
+            onClick={() => onClose(true)}
           >
             <CheckCircle2 className="mr-2 h-5 w-5" />
             Confirm
@@ -512,6 +512,7 @@ const SubLotProcessing: React.FC = () => {
     const [showSuccessNotification, setShowSuccessNotification] = useState<boolean>(false);
     const [creatingInspection, setCreatingInspection] = useState<boolean>(false);
     const [showBatchConfirmation, setShowBatchConfirmation] = useState<boolean>(false);
+    const [batchInfoConfirmed, setBatchInfoConfirmed] = useState<boolean>(false);
 
     // Add these to your state definitions
     const [showSuccessDialog, setShowSuccessDialog] = useState<boolean>(false);
@@ -1057,6 +1058,22 @@ const handleScanEmployee = async () => {
         }
     };
 
+    const validateInspectionQty = (): { isValid: boolean; message: string } => {
+        if (!inspectionQty || inspectionQty.trim() === "") {
+            return { isValid: false, message: "Inspection quantity is required" };
+        }
+        
+        const qty = parseFloat(inspectionQty);
+        if (isNaN(qty) || qty <= 0) {
+            return { 
+                isValid: false, 
+                message: "Inspection quantity must be greater than 0" 
+            };
+        }
+        
+        return { isValid: true, message: "" };
+    };
+
     const handleSave = async (): Promise<FormattedData | undefined> => {
         // Validate employee barcode is present and in correct format
         const empBarcodeValidation = validateEmployeeBarcode(employeeBarcode);
@@ -1065,6 +1082,17 @@ const handleScanEmployee = async () => {
             setProcessError({
                 title: "Validation Error",
                 message: empBarcodeValidation.message
+            });
+            setShowErrorDialog(true);
+            return;
+        }
+
+        // Validate inspection quantity
+        const inspectionQtyValidation = validateInspectionQty();
+        if (!inspectionQtyValidation.isValid) {
+            setProcessError({
+                title: "Validation Error",
+                message: inspectionQtyValidation.message
             });
             setShowErrorDialog(true);
             return;
@@ -1273,7 +1301,7 @@ const handleScanEmployee = async () => {
     };
 
     return (
-  <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
+  <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6 antialiased font-sans text-rendering-optimizeLegibility">
     <style>{animationStyles}</style>
     <LoadingOverlay 
       isLoading={isLoading} 
@@ -1308,68 +1336,127 @@ const handleScanEmployee = async () => {
           <ErrorNotification scanError={scanError} />
           
           {/* Batch Information Card */}
-          <div className="mb-8 hover-lift depth-card rounded-xl overflow-hidden bg-white">
-            <div className="px-5 py-4 bg-gradient-to-r from-blue-600/10 to-blue-500/5 border-b border-slate-200 section-border relative">
-              <h3 className="font-semibold text-slate-800 flex items-center">
-                <div className="mr-3 p-1.5 rounded-md bg-blue-100 text-blue-600">
-                  <BarChart2 className="h-5 w-5" />
-                </div>
-                Batch Information
-                {isLoading && <div className="ml-auto"><Loader2 className="h-4 w-4 animate-spin text-blue-500" /></div>}
-              </h3>
-            </div>
-            
-            <div className={`p-5 transition-all duration-300 ${batchId && itemCode ? 'animate-fade-in' : ''}`}>
-              <div className="mb-5 group">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-                  <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700 group-focus-within:text-blue-700 transition-colors" htmlFor="scan-spp">
-                    Scan SPP Batch:
-                  </label>
-                  <div className="lg:col-span-4 flex gap-2">
-                    <div className="flex-1 relative">
-                      <Input
-                        id="scan-spp"
-                        placeholder="Batch ID"
-                        className="w-full p-2.5 bg-slate-50/80 border-slate-200 rounded-lg transition focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                        value={batchId}
-                        onChange={(e) => setBatchId(e.target.value)}
-                      />
-                      {!batchId && (
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50">
-                          <div className="w-0.5 h-4 bg-slate-300 animate-pulse"></div>
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="bg-gradient-to-b from-blue-50 to-blue-100 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg shadow-sm hover:shadow transition-all whitespace-nowrap"
-                      onClick={handleScanBatch}
-                      disabled={!batchId || isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                      ) : (
-                        <Search className="h-4 w-4 mr-1" />
-                      )}
-                      Scan Batch
-                    </Button>
-                  </div>
-                  <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="batch-no">
-                    Batch No:
-                  </label>
-                  <Input
-                    id="batch-no"
-                    placeholder="Batch No"
-                    className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg"
-                    value={batchNo}
-                    readOnly
-                  />
-                </div>
+<div className="mb-8 hover-lift depth-card rounded-xl overflow-hidden bg-white">
+  <div className="px-5 py-4 bg-gradient-to-r from-blue-600/10 to-blue-500/5 border-b border-slate-200 section-border relative">
+    <h3 className="font-semibold text-slate-800 flex items-center tracking-tight">
+      <div className="mr-3 p-1.5 rounded-md bg-blue-100 text-blue-600">
+        <BarChart2 className="h-5 w-5" />
+      </div>
+      Batch Information
+      {isLoading && <div className="ml-auto"><Loader2 className="h-4 w-4 animate-spin text-blue-500" /></div>}
+    </h3>
+  </div>
+  
+  <div className={`p-5 transition-all duration-300`}>
+    <div className="mb-5 group">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+        <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700 group-focus-within:text-blue-700 transition-colors" htmlFor="scan-spp">
+          Scan SPP Batch:
+        </label>
+        <div className="lg:col-span-4 flex gap-2">
+          <div className="flex-1 relative">
+            <Input
+              id="scan-spp"
+              placeholder="Batch ID"
+              className="w-full p-2.5 bg-slate-50/80 border-slate-200 rounded-lg transition focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              value={batchId}
+              onChange={(e) => setBatchId(e.target.value)}
+            />
+            {!batchId && (
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-50">
+                <div className="w-0.5 h-4 bg-slate-300 animate-pulse"></div>
               </div>
-              
-              {/* Rest of batch information fields remain similar, just update styling */}
-            </div>
+            )}
           </div>
+          <Button
+            variant="outline"
+            className="bg-gradient-to-b from-blue-50 to-blue-100 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg shadow-sm hover:shadow transition-all whitespace-nowrap"
+            onClick={handleScanBatch}
+            disabled={!batchId || isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <Search className="h-4 w-4 mr-1" />
+            )}
+            Scan Batch
+          </Button>
+        </div>
+        
+        {batchInfoConfirmed && (
+          <>
+            <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="batch-no">
+              Batch No:
+            </label>
+            <Input
+              id="batch-no"
+              placeholder="Batch No"
+              className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg"
+              value={batchNo}
+              readOnly
+            />
+          </>
+        )}
+      </div>
+    </div>
+    
+    {batchInfoConfirmed && (
+      <>
+        <div className="mb-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+            <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="item-code">
+              Item Code:
+            </label>
+            <Input
+              id="item-code"
+              placeholder="Item Code"
+              className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg"
+              value={itemCode}
+              readOnly
+            />
+            <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="warehouse">
+              Warehouse:
+            </label>
+            <Input
+              id="warehouse"
+              placeholder="Warehouse"
+              className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg"
+              value={warehouse}
+              readOnly
+            />
+          </div>
+        </div>
+        
+        <div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+            <label className="lg:col-span-2 text-sm font-medium whitespace-nowrap text-slate-700" htmlFor="qty">
+              Available Qty:
+            </label>
+            <Input
+              id="qty"
+              placeholder="Available Quantity"
+              className="lg:col-span-4 p-2.5 bg-slate-50/80 border-slate-200 rounded-lg"
+              value={quantity}
+              readOnly
+            />
+          </div>
+        </div>
+        
+        <div className="mt-4 p-3 bg-blue-50/50 border border-blue-100 rounded-lg">
+          <div className="flex items-start">
+            <div className="mr-2 p-1 bg-blue-100 rounded-full mt-0.5">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+            </div>
+            <p className="text-sm text-blue-700">
+              Batch <span className="font-semibold">{batchId}</span> confirmed. You can now add operations and inspection details.
+            </p>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+</div>
+
           
           {/* Employee section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
@@ -1703,7 +1790,12 @@ const handleScanEmployee = async () => {
     {/* Dialogs */}
     <BatchConfirmationDialog
       show={showBatchConfirmation}
-      onClose={() => setShowBatchConfirmation(false)}
+      onClose={(confirmed) => {
+        setShowBatchConfirmation(false);
+        if (confirmed) {
+          setBatchInfoConfirmed(true);
+        }
+      }}
       batchInfo={{
         batchId,
         itemCode,
