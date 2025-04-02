@@ -30,61 +30,118 @@ def process_lot(data):
         try:
             # Create sub-lot entry
             sub_lot_result = create_sub_lot_entry(batch_info, inspection_info, validation_result)
-
-            # Process operations if sub-lot creation was successful
-            if sub_lot_result and sub_lot_result.get("sub_lot_no"):
-                sub_lot_no = sub_lot_result.get("sub_lot_no")
-                
-                # Get validation data for operations (only once)
-                operation_validation = _get_lot_res_validation_data(batch_id)
-                
-                # Step 1: Create resource tags first
-                operation_results = []
-                
-                for operation_detail in operations:
-                    operation_type = operation_detail.get("operation")
-                    operator_id = operation_detail.get("employeeCode")
-                    
-                    # Validate the operation data
-                    if not operation_type or not operator_id:
-                        frappe.log_error(
-                            f"Missing operation type or operator ID: {operation_detail}",
-                            "Process Operation Error"
-                        )
-                        continue
-                        
-                    # Create resource tagging for this operation
-                    result = _create_resource_tags_for_operations(
-                        operation_type, 
-                        sub_lot_no, 
-                        operator_id,
-                        operation_validation
-                    )
-                    operation_results.append(result)
-                
-                # Step 2: Create inspection entry after resource tagging
-                inspection_result = _create_inspection_entry(
-                    sub_lot_no, 
-                    inspection_info.get("inspectorCode"),
-                    inspection_info.get("inspectionQuantity"),
-                    operation_validation,
-                    rejection_details
+            
+            # Check if sub_lot creation was successful
+            if not sub_lot_result:
+                frappe.log_error(
+                    f"Sub-lot creation returned empty result for batch {batch_id}",
+                    "Process Lot Error - Sub-lot Creation"
                 )
-                
-                # Return successful response with all results
                 return {
-                    "status": "success",
-                    "message": f"Lot {batch_id} processed successfully",
+                    "status": "failed", 
+                    "message": "Sub-lot creation failed - empty result",
+                    "validation_result": validation_result
+                }
+            
+            # Check if sub_lot_result has a failed status
+            if sub_lot_result.get("status") == "failed":
+                frappe.log_error(
+                    f"Sub-lot creation failed: {sub_lot_result.get('message')} for batch {batch_id}",
+                    "Process Lot Error - Sub-lot Creation"
+                )
+                return {
+                    "status": "failed", 
+                    "message": f"Sub-lot creation failed: {sub_lot_result.get('message')}",
+                    "validation_result": validation_result,
+                    "sub_lot": sub_lot_result
+                }
+            
+            # Check if sub_lot_no exists in the result
+            if not sub_lot_result.get("sub_lot_no"):
+                frappe.log_error(
+                    f"No sub_lot_no found in sub_lot_result for batch {batch_id}: {sub_lot_result}",
+                    "Process Lot Error - Missing Sub-lot Number"
+                )
+                return {
+                    "status": "failed", 
+                    "message": "No sub-lot number was generated",
+                    "validation_result": validation_result,
+                    "sub_lot": sub_lot_result
+                }
+            
+            # At this point, we have confirmed the sub-lot creation was successful
+            sub_lot_no = sub_lot_result.get("sub_lot_no")
+            frappe.log_error(
+                f"Successfully created sub-lot {sub_lot_no} for batch {batch_id}, proceeding with operations",
+                "Process Lot - Sub-lot Created"
+            )
+                
+            # Get validation data for operations (only once)
+            operation_validation = _get_lot_res_validation_data(batch_id)
+            
+            # Verify operation validation data
+            if not operation_validation or operation_validation.get("status") == "failed":
+                frappe.log_error(
+                    f"Operation validation failed for batch {batch_id}: {operation_validation}",
+                    "Process Lot Error - Operation Validation"
+                )
+                return {
+                    "status": "partial", 
+                    "message": f"Sub-lot created but operation validation failed: {operation_validation.get('message', 'Unknown error')}",
+                    "sub_lot": sub_lot_result,
+                    "operation_validation_error": operation_validation
+                }
+            
+            # Step 1: Create resource tags first
+            operation_results = []
+            
+            for operation_detail in operations:
+                operation_type = operation_detail.get("operation")
+                operator_id = operation_detail.get("employeeCode")
+                
+                # Validate the operation data
+                if not operation_type or not operator_id:
+                    frappe.log_error(
+                        f"Missing operation type or operator ID: {operation_detail}",
+                        "Process Operation Error"
+                    )
+                    continue
+                    
+                # Create resource tagging for this operation
+                result = _create_resource_tags_for_operations(
+                    operation_type, 
+                    sub_lot_no, 
+                    operator_id,
+                    operation_validation
+                )
+                operation_results.append(result)
+            
+            # Step 2: Create inspection entry after resource tagging
+            inspection_result = _create_inspection_entry(
+                sub_lot_no, 
+                inspection_info.get("inspectorCode"),
+                inspection_info.get("inspectionQuantity"),
+                operation_validation,
+                rejection_details
+            )
+            
+            # Check if inspection creation succeeded
+            if inspection_result and inspection_result.get("status") == "failed":
+                return {
+                    "status": "partial",
+                    "message": f"Lot {batch_id} processed with warnings: Inspection creation failed",
                     "sub_lot": sub_lot_result,
                     "operations": operation_results,
                     "inspection": inspection_result
                 }
             
-            # No sub-lot created
+            # Return successful response with all results
             return {
                 "status": "success",
                 "message": f"Lot {batch_id} processed successfully",
-                "sub_lot": sub_lot_result
+                "sub_lot": sub_lot_result,
+                "operations": operation_results,
+                "inspection": inspection_result
             }
 
         except Exception as e:

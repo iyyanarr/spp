@@ -1278,7 +1278,19 @@ const handleScanEmployee = async () => {
         "WASHER VISIBLE", "DISPRESS PROBLEM", "THK UNDERSIZE", "THK OVERSIZE", "ID UNDERSIZE",
         "ID OVERSIZE", "OD UNDERSIZE", "OD OVERSIZE", "IMPRESSION MARK", "WELD LINE", "BEND",
         "PIN HOLE", "BACKRIND", "BONDING BUBBLE", "PARTING LINE CUTMARK", "MOULD RUST", "STAIN ISSUE",
-        "STRETCH TEST"
+        "STRETCH TEST","FLOW-(FL)", 
+								 "BUBBLE-(BU) / BLISTER-(BL)", 
+								 "CUTMARK-(CU)",
+								 "DEFLASH-(DF)", 
+								 "RIB", 
+								 "FOREIGN PARTICLE-(FP)",
+								 "UNDER FILL-( UF )",
+								 "DIPRESSION-(DP)", 
+								 "UNDER CURE-(UC)", 
+								 "SURFACE DEFECT-(SD)",
+								 "OVER CURE-(OC) /FAST CURE",
+								 "BURST / TEAR", 
+								 "BLACK MARK",
     ];
 
     // Handle adding rejection
