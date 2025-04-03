@@ -1,0 +1,161 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SUBLOT PROCESS-{barcode}-{###}",
+ "creation": "2025-04-03 11:04:28.342547",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_wkyd",
+  "spp_batch_number",
+  "batch_no",
+  "sub_lot_number",
+  "barcode",
+  "column_break_jkcx",
+  "item_code",
+  "warehouse",
+  "available_quantity",
+  "operation_details_section",
+  "operations",
+  "section_break_tqrx",
+  "inspection_quantity",
+  "column_break_qqdm",
+  "inspector_code",
+  "column_break_jwfk",
+  "inspector_name",
+  "section_break_nssa",
+  "table_ilhb",
+  "column_break_fhis",
+  "table_zhga"
+ ],
+ "fields": [
+  {
+   "fieldname": "operations",
+   "fieldtype": "Table",
+   "label": "Operations",
+   "options": "Sub Lot Process Operations"
+  },
+  {
+   "fieldname": "operation_details_section",
+   "fieldtype": "Section Break",
+   "label": "Operation Details"
+  },
+  {
+   "fieldname": "section_break_wkyd",
+   "fieldtype": "Section Break",
+   "label": "Batch Info"
+  },
+  {
+   "fieldname": "spp_batch_number",
+   "fieldtype": "Data",
+   "label": "Spp Batch Number"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "label": "Item Code"
+  },
+  {
+   "fieldname": "column_break_jkcx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Data",
+   "label": "Warehouse"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch No"
+  },
+  {
+   "fieldname": "available_quantity",
+   "fieldtype": "Data",
+   "label": "Available Quantity"
+  },
+  {
+   "fieldname": "section_break_tqrx",
+   "fieldtype": "Section Break",
+   "label": "Inspection Info"
+  },
+  {
+   "fieldname": "inspection_quantity",
+   "fieldtype": "Data",
+   "label": "Inspection Quantity"
+  },
+  {
+   "fieldname": "inspector_code",
+   "fieldtype": "Data",
+   "label": "Inspector Code"
+  },
+  {
+   "fieldname": "column_break_qqdm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_jwfk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "inspector_name",
+   "fieldtype": "Data",
+   "label": "Inspector Name"
+  },
+  {
+   "fieldname": "table_ilhb",
+   "fieldtype": "Table",
+   "options": "Rejection Details"
+  },
+  {
+   "fieldname": "section_break_nssa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_fhis",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "table_zhga",
+   "fieldtype": "Table",
+   "options": "Sub Lot Ref Docs"
+  },
+  {
+   "fieldname": "sub_lot_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Sub Lot Number",
+   "unique": 1
+  },
+  {
+   "fieldname": "barcode",
+   "fieldtype": "Barcode"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-04-03 13:05:10.371665",
+ "modified_by": "Administrator",
+ "module": "Spp",
+ "name": "Sub Lot Process",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-04-03 11:50:43.946328",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "rejection_type",
+  "column_break_yxhc",
+  "quantity"
+ ],
+ "fields": [
+  {
+   "fieldname": "rejection_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Rejection Type"
+  },
+  {
+   "fieldname": "column_break_yxhc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Quantity"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-04-03 11:54:32.425888",
+ "modified_by": "Administrator",
+ "module": "Spp",
+ "name": "Rejection Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

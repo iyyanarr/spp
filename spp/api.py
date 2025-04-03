@@ -135,13 +135,36 @@ def process_lot(data):
                     "inspection": inspection_result
                 }
             
+            # Create Sub Lot Process record
+            process_record_result = _create_sub_lot_process_record(
+                sub_lot_result, 
+                operation_results, 
+                inspection_result, 
+                batch_info, 
+                inspection_info, 
+                operations, 
+                rejection_details
+            )
+            
+            # Check if process record creation succeeded
+            if process_record_result.get("status") == "failed":
+                return {
+                    "status": "partial",
+                    "message": f"Lot {batch_id} processed with warnings: Process record creation failed",
+                    "sub_lot": sub_lot_result,
+                    "operations": operation_results,
+                    "inspection": inspection_result,
+                    "process_record": process_record_result
+                }
+            
             # Return successful response with all results
             return {
                 "status": "success",
                 "message": f"Lot {batch_id} processed successfully",
                 "sub_lot": sub_lot_result,
                 "operations": operation_results,
-                "inspection": inspection_result
+                "inspection": inspection_result,
+                "process_record": process_record_result
             }
 
         except Exception as e:
@@ -591,3 +614,112 @@ def _create_inspection_entry(sub_lot_no, inspector_id, inspection_qty, validatio
     except Exception as e:
         frappe.log_error(f"Error creating inspection entry: {str(e)}\n{frappe.get_traceback()}", "Inspection Entry - Error")
         return {"status": "failed", "message": str(e)}
+
+def _create_sub_lot_process_record(sub_lot_result, operation_results, inspection_result, batch_info, inspection_info, operations, rejection_details):
+    """
+    Create a record in the Sub Lot Process doctype to track the entire process.
+    Returns the complete document data on success.
+    """
+    try:
+        # Create a new Sub Lot Process document
+        process_doc = frappe.new_doc("Sub Lot Process")
+        
+        # Set basic fields
+        process_doc.spp_batch_number = batch_info.get("sppBatchId")
+        process_doc.barcode = batch_info.get("sppBatchId")  # Set barcode field using spp batch number
+        process_doc.batch_no = f"P{batch_info.get('sppBatchId')}"
+        process_doc.sub_lot_number = sub_lot_result.get("sub_lot_no")
+        process_doc.item_code = sub_lot_result.get("item_code")
+        process_doc.warehouse = sub_lot_result.get("warehouse")
+        
+        # Set quantities
+        process_doc.available_quantity = sub_lot_result.get("qty")
+        process_doc.inspection_quantity = inspection_info.get("inspectionQuantity")
+        
+        # Set inspector information
+        inspector_code = inspection_info.get("inspectorCode")
+        process_doc.inspector_code = inspector_code
+        
+        # Try to get inspector name
+        try:
+            inspector_name = frappe.db.get_value("Employee", {"employee_id": inspector_code}, "employee_name")
+            process_doc.inspector_name = inspector_name
+        except:
+            process_doc.inspector_name = ""
+        
+        # Add operations
+        for op_detail in operations:
+            operation_type = op_detail.get("operation")
+            employee_code = op_detail.get("employeeCode")
+            
+            if not operation_type or not employee_code:
+                continue
+                
+            # Try to get employee name
+            employee_name = ""
+            try:
+                employee_name = frappe.db.get_value("Employee", {"employee_id": employee_code}, "employee_name")
+            except:
+                pass
+                
+            process_doc.append("operations", {
+                "operation": operation_type,
+                "employee_code": employee_code,
+                "employee_name": employee_name
+            })
+        
+        # Add rejection details
+        if rejection_details:
+            for rej in rejection_details:
+                process_doc.append("table_ilhb", {
+                    "rejection_type": rej.get("rejectionType", ""),
+                    "quantity": rej.get("quantity", 0)
+                })
+        
+        # Add reference documents
+        # 1. Sub Lot document
+        if sub_lot_result.get("name"):
+            process_doc.append("table_zhga", {
+                "ref_doc": sub_lot_result.get("name")
+            })
+        
+        # 2. Resource tagging documents
+        for op_result in operation_results:
+            if op_result.get("status") == "success" and op_result.get("resource_tag"):
+                process_doc.append("table_zhga", {
+                    "ref_doc": op_result.get("resource_tag")
+                })
+        
+        # 3. Inspection entry
+        if inspection_result.get("status") == "success" and inspection_result.get("inspection_entry"):
+            process_doc.append("table_zhga", {
+                "ref_doc": inspection_result.get("inspection_entry")
+            })
+        
+        # Save the document
+        process_doc.insert(ignore_permissions=True)
+        
+        frappe.log_error(f"Created Sub Lot Process record: {process_doc.name}", 
+                       "Sub Lot Process - Created")
+        
+        # Reload the document to ensure we have all data, including generated child IDs
+        process_doc.reload()
+        
+        # Convert to dictionary for the response
+        process_data = process_doc.as_dict()
+        
+        # Return the success status and the complete document data
+        return {
+            "status": "success", 
+            "message": f"Sub Lot Process record created",
+            "process_record": process_doc.name,
+            "data": process_data
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Error creating Sub Lot Process record: {str(e)}\n{frappe.get_traceback()}", 
+                       "Sub Lot Process - Error")
+        return {
+            "status": "failed", 
+            "message": f"Error creating process record: {str(e)}"
+        }
