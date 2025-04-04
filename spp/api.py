@@ -185,18 +185,9 @@ def process_lot(data):
         "validation_result": validation_result
     }
 
-def create_sub_lot_entry(batch_info, inspection_info,lot_data):
+def create_sub_lot_entry(batch_info, inspection_info, lot_data):
     """
     Create a Sub Lot Creation entry based on lot validation and quantity comparison.
-    
-    Args:
-        batch_info (dict): Information about the batch including sppBatchId
-        inspection_info (dict): Information from the inspection process
-        operations (list): List of operations to be performed
-        validation_data (dict, optional): Pre-validated data if available
-        
-    Returns:
-        dict or object: Either the created sub_lot document or a status dictionary
     """
     try:
         # Extract and validate the batch ID
@@ -206,7 +197,6 @@ def create_sub_lot_entry(batch_info, inspection_info,lot_data):
             return {"status": "failed", "message": "Missing batch ID"}
             
         frappe.log_error(f"Creating sub-lot for: {original_lot_no}", "Sub Lot Creation - Start")
-        
         
         # Convert and compare quantities
         available_qty = float(lot_data.get("qty", 0))
@@ -221,26 +211,52 @@ def create_sub_lot_entry(batch_info, inspection_info,lot_data):
             "Sub Lot Creation - Quantity Conversion"
         )
 
-        # If inspection quantity is less than available quantity, create sub-lot
-        if inspection_qty <= available_qty:
-            # Create sub lot document
-            sub_lot_doc = _create_sub_lot_document(
-                original_lot_no, 
-                lot_data, 
-                inspection_qty, 
-                inspection_qty_kg, 
-                available_qty
+        # Check if inspection quantity exceeds available quantity
+        if inspection_qty > available_qty:
+            frappe.log_error(
+                f"Inspection quantity {inspection_qty} exceeds available quantity {available_qty}. Performing stock reconciliation.",
+                "Sub Lot Creation - Quantity Discrepancy"
             )
             
-           
-            return sub_lot_doc
+            # Get item and warehouse details from batch_info
+            item_code = batch_info.get("itemCode") or lot_data.get("item_code")
+            warehouse = batch_info.get("warehouse") or lot_data.get("t_warehouse")
+            batch_no = batch_info.get("batchNo") or lot_data.get("batch_no")
+            
+            # Create stock reconciliation
+            reconciliation_result = _create_stock_reconciliation(
+                item_code, 
+                warehouse, 
+                batch_no, 
+                available_qty, 
+                inspection_qty
+            )
+            
+            if reconciliation_result.get("status") == "failed":
+                frappe.log_error(
+                    f"Stock reconciliation failed: {reconciliation_result.get('message')}",
+                    "Sub Lot Creation - Reconciliation Failed"
+                )
+                # Continue with creation anyway, but log the error
+            else:
+                frappe.log_error(
+                    f"Stock reconciled successfully. Document: {reconciliation_result.get('reconciliation')}",
+                    "Sub Lot Creation - Reconciliation Success"
+                )
+                # Update available quantity to reflect the reconciliation
+                available_qty = inspection_qty
+                lot_data["qty"] = inspection_qty
         
-        # No sub lot was created (fallback)
-        return {
-            "status": "success", 
-            "message": "Process completed without creating sub lot",
-            "sub_lot_no": original_lot_no
-        }
+        # Create sub lot document (now works with both cases - when qty <= available and when qty > available)
+        sub_lot_doc = _create_sub_lot_document(
+            original_lot_no, 
+            lot_data, 
+            inspection_qty, 
+            inspection_qty_kg, 
+            available_qty
+        )
+        
+        return sub_lot_doc
         
     except Exception as e:
         frappe.log_error(
@@ -722,4 +738,67 @@ def _create_sub_lot_process_record(sub_lot_result, operation_results, inspection
         return {
             "status": "failed", 
             "message": f"Error creating process record: {str(e)}"
+        }
+
+def _create_stock_reconciliation(item_code, warehouse, batch_no, current_qty, new_qty):
+    """
+    Create a Stock Reconciliation document to adjust inventory quantities.
+    
+    Args:
+        item_code (str): Item code
+        warehouse (str): Warehouse 
+        batch_no (str): Batch number
+        current_qty (float): Current quantity in system
+        new_qty (float): New quantity to set
+        
+    Returns:
+        dict: Result of the operation
+    """
+    try:
+        frappe.log_error(
+            f"Creating stock reconciliation for {item_code} in {warehouse}, batch {batch_no}: {current_qty} -> {new_qty}",
+            "Stock Reconciliation - Start"
+        )
+        
+        # Create stock reconciliation document
+        sr = frappe.new_doc("Stock Reconciliation")
+        sr.purpose = "Stock Reconciliation"
+        sr.set_posting_time = 1
+        sr.posting_date = frappe.utils.today()
+        sr.posting_time = frappe.utils.nowtime()
+        sr.company = frappe.defaults.get_user_default("company")
+        sr.append("items", {
+            "item_code": item_code,
+            "warehouse": warehouse,
+            "batch_no": batch_no,
+            "qty": new_qty,
+            "valuation_rate": frappe.db.get_value("Stock Ledger Entry", 
+                                                {"item_code": item_code, "batch_no": batch_no, "warehouse": warehouse},
+                                                "valuation_rate")
+        })
+        
+        # Set flags to bypass permission issues
+        sr.flags.ignore_permissions = True
+        sr.flags.ignore_links = True
+        
+        # Save and submit the document
+        sr.insert()
+        sr.submit()
+        
+        frappe.log_error(f"Stock reconciliation {sr.name} created and submitted successfully", 
+                       "Stock Reconciliation - Complete")
+        
+        return {
+            "status": "success",
+            "message": "Stock quantity reconciled",
+            "reconciliation": sr.name,
+            "difference": new_qty - current_qty
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Error creating stock reconciliation: {str(e)}\n{frappe.get_traceback()}", 
+                       "Stock Reconciliation - Error")
+        return {
+            "status": "failed",
+            "message": f"Error reconciling stock: {str(e)}"
         }
