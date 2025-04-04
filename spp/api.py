@@ -770,6 +770,7 @@ def _create_stock_reconciliation(item_code, warehouse, batch_no, current_qty, ne
         sr.append("items", {
             "item_code": item_code,
             "warehouse": warehouse,
+            "use_serial_batch_fields": 1,
             "batch_no": batch_no,
             "qty": new_qty,
             "valuation_rate": frappe.db.get_value("Stock Ledger Entry", 
